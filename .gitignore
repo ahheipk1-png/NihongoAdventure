@@ -1,0 +1,4 @@
+# Backups and scratch
+.kq-backup*.html
+node_modules/
+.wrangler/
