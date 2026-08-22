@@ -160,16 +160,18 @@ speeds.</p>
   tablet the hosted game was laying itself out at desktop width and shrinking the whole thing to
   about 38%. Every piece of responsive design was inert and every button was rendering at roughly
   a quarter of its intended size — on the devices your children are most likely to use.</p>
-  <p>Beyond that, three things would frustrate a real child, and all three live in the
-  <em>reward</em> layer rather than the content. The most serious is that <strong>Memory Pairs
-  actively damages the learning model</strong> — forgetting where a card is demotes a kana the child
-  already knows. Then <strong>the Ninja tier is close to unwinnable</strong> at a realistic
-  answering pace. And <strong>the result screen contradicts itself</strong>, telling a child they
-  passed when they did not advance.</p>
+  <p>A second serious problem is <strong>also now fixed</strong>: Memory Pairs was demoting kana a
+  child already knew, because forgetting <em>where a card was</em> ran through the same code path as
+  getting the answer wrong. It has become <strong>Pair Up</strong> — one side of every pair stays
+  open, so the round tests Japanese instead of spatial recall.</p>
+  <p>What remains are two things in the <em>reward</em> layer. <strong>The Ninja tier is close to
+  unwinnable</strong> at a realistic answering pace, and <strong>the result screen contradicts
+  itself</strong>, telling a child they passed when they did not advance.</p>
 </div>
 
 <div class="grid2">
   <div class="stat good"><b>981 → 375</b><span>phone layout width, after the fix</span></div>
+  <div class="stat good"><b>70 → 100%</b><span>Pair Up win rate, after the redesign</span></div>
   <div class="stat good"><b>246 B</b><span>saves and restores perfectly</span></div>
   <div class="stat warn"><b>~36 min</b><span>to "finish" hiragana…</span></div>
   <div class="stat bad"><b>59%</b><span>…with only this much mastered</span></div>
@@ -246,7 +248,7 @@ at 5 of 10 — turned out to be my test harness, not the game; it re-deals corre
 </div>
 
 <div class="finding critical">
-  <div class="head"><span class="chip critical">Critical</span><h3>2. Memory Pairs corrupts the learning data</h3></div>
+  <div class="head"><span class="chip critical">Critical</span><span class="chip good">Fixed</span><h3>2. Memory Pairs corrupted the learning data</h3></div>
   <p>When two flipped cards do not match, the game calls <code>credit(p, kana, false)</code> — the
   same "you got this wrong" path used everywhere else. But a mismatch in a memory game is a slip
   about <em>where a card is</em>, not a failure to know the character.</p>
@@ -260,10 +262,19 @@ at 5 of 10 — turned out to be my test harness, not the game; it re-deals corre
       explains the mastery gap below.</dd>
     <dt>Also</dt><dd>Only the <em>first</em> card of the mismatched pair is demoted, which is
       arbitrary — the second is untouched.</dd>
-    <dt>Fix</dt><dd>On a mismatch, apply the power penalty but <strong>do not call
-      <code>credit(..., false)</code></strong> — or at most demote by one box instead of two. Keep
-      the box change for genuine knowledge failures.</dd>
-    <dt>Effort</dt><dd>Trivial — one line.</dd>
+    <dt>Fix applied</dt><dd>Rather than patch the symptom, the game itself changed:
+      <strong>Memory Pairs is now “Pair Up”</strong>. One side of every pair stays face up all
+      round — the Japanese side, so the script is in front of the learner the whole time — and the
+      meanings are hidden. Tap a hidden card, then tap the card it belongs with.</dd>
+    <dt>Why that is the better fix</dt><dd>It removes the spatial-memory tax entirely, so a wrong
+      answer is now a <em>genuine</em> knowledge error and demoting the box is correct rather than
+      noise. Three further improvements fell out of it: the demotion lands on the hidden card that
+      was actually being identified (not an arbitrary one), tapping two open cards moves the
+      selection instead of scoring a miss, and the ten-second peek is gone along with the memory
+      load that needed it.</dd>
+    <dt>Measured after</dt><dd>Win rate at a 4-second pace rose from <strong>70% → 100%</strong>
+      (Explorer) and <strong>23% → 61%</strong> (Ninja). 47 regression checks across every topic
+      pass clean.</dd>
   </dl>
 </div>
 
@@ -429,10 +440,10 @@ topic, which is worth knowing before generating more:</p>
 text baked into them could not be regenerated today. Concrete-noun topics are where more pictures
 would pay off; verbs and grammar probably never will.</p>
 
-<h2>If you only change three things</h2>
+<h2>What is left to change</h2>
 <ol class="tight">
-  <li><strong>Stop Memory Pairs demoting kana on a mismatch.</strong> One line, and it stops the
-    game teaching itself wrong things about your children.</li>
+  <li><s>Stop Memory Pairs demoting kana on a mismatch.</s> <strong>Done</strong> — solved at the
+    root by turning it into Pair Up.</li>
   <li><strong>Split the round message from the level message.</strong> Small, and it removes the
     only place where the game says something untrue.</li>
   <li><strong>Soften Ninja and Fishing.</strong> Four numbers, and the oldest child stops losing

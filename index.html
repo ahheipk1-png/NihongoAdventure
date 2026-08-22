@@ -1932,6 +1932,16 @@ function pick(list) { return list[Math.floor(Math.random() * list.length)]; }
 function withGap(text) { return esc(text).replace(/＿/g, '<span class="gap"></span>'); }
 // An AI illustration for this item, when one exists. Everything that shows a
 // picture goes through here so the fallback to an emoji stays in one place.
+// Score a hit that has no item of its own to move (a letter on a vocabulary
+// topic). The round still counts it; only the knowledge model stays out of it.
+function scoreOnly(p) {
+  session.hits += 1;
+  session.streak += 1;
+  session.best = Math.max(session.best, session.streak);
+  p.stars += 1;
+  save();
+}
+
 function picFor(key) { return (window.PICS && window.PICS[key]) || null; }
 
 function picImg(key, cls) {
@@ -3195,14 +3205,19 @@ function placeLetter(p, ti, si) {
   if (!t || t.used) return;
   if (session.filled[si] !== null) return;
   const want = session.wordLetters[si];
+  const entry = session.words[session.wi];
 
   if (t.k === want) {
     audio.good();
     t.used = true;
     session.filled[si] = t.k;
-    credit(p, t.k, true);
+    // A letter only moves a box when the letter is itself an item of this
+    // topic; otherwise the word is the item and it is credited on completion.
+    const items = courseOf(p).items;
+    if (items[t.k]) credit(p, t.k, true); else scoreOnly(p);
     const filled = powerGain(p);
     const solved = session.filled.indexOf(null) === -1;
+    if (solved && !items[t.k] && items[entry.w]) credit(p, entry.w, true);
     renderWord(p);
     if (filled) { audio.star(); setTimeout(function () { finish(p); }, 620); return; }
     if (solved) {
@@ -3224,7 +3239,10 @@ function placeLetter(p, ti, si) {
   }
 
   audio.bad();
-  credit(p, want, false);
+  // Demote whichever of the two is a real item of this topic.
+  const wrongItems = courseOf(p).items;
+  if (wrongItems[want]) credit(p, want, false);
+  else if (wrongItems[entry.w]) credit(p, entry.w, false);
   powerLose(p);
   const tileEl = screenEl.querySelector('[data-t="' + ti + '"]');
   const slotEl = screenEl.querySelector('[data-s="' + si + '"]');
@@ -3765,6 +3783,14 @@ screenEl.addEventListener("click", function (e) {
       if (typeof g.level !== "number") g.level = 0;
     });
     prog(p);
+    // Drop stray box keys that are not items of their topic (older builds
+    // recorded individual letters on vocabulary topics).
+    Object.keys(p.progress).forEach(function (cid) {
+      const owned = COURSES[cid] && COURSES[cid].items;
+      if (!owned) return;
+      const bx = p.progress[cid].boxes;
+      Object.keys(bx).forEach(function (k) { if (!owned[k]) delete bx[k]; });
+    });
     delete p.unlocked; delete p.lastKind; delete p.level;
     prog(p).level = Math.max(0, Math.min(prog(p).level, ladderFor(p).length - 1));
     p.stars = p.stars || 0;
