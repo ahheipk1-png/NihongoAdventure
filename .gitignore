@@ -3,3 +3,7 @@
 kana-quest.html
 node_modules/
 .wrangler/
+
+# raw generated audio (the compressed copies live inside index.html)
+audio-build/audio/
+audio-build/dist/
