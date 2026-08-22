@@ -968,6 +968,32 @@ button.rung.replay { cursor: pointer; font: inherit; font-weight: 700; font-size
 button.rung.replay:hover { border-color: var(--ai); color: var(--ai); }
 button.rung.replay:focus-visible { outline: 2.5px solid var(--ai); outline-offset: 2px; }
 .laddernote { font-size: 12.5px; color: var(--ink-faint); margin: 2px 0 0; }
+.lvllist { display: flex; flex-direction: column; gap: 8px; }
+.lvlrow {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  min-height: 62px; padding: 11px 14px; text-align: left;
+  border: 1.5px solid var(--rule); border-radius: var(--r-md);
+  background: var(--paper); color: var(--ink); font: inherit;
+}
+.lvlrow.past  { cursor: pointer; }
+.lvlrow.here  { cursor: pointer; border-color: var(--ai); background: var(--ai-wash); }
+.lvlrow.locked { opacity: .5; }
+.lvlrow.past:hover { border-color: var(--ai); }
+.lvlrow:focus-visible { outline: 2.5px solid var(--ai); outline-offset: 2px; }
+.lvlrow-n {
+  flex: 0 0 auto; min-width: 34px; text-align: center;
+  font-family: var(--font-kana); font-weight: 800; font-size: 19px; color: var(--ink-soft);
+}
+.lvlrow.here .lvlrow-n { color: var(--ai); }
+.lvlrow-main { flex: 1 1 auto; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.lvlrow-title { font-weight: 800; font-size: 14.5px; }
+.lvlrow-sub {
+  font-size: 12px; color: var(--ink-faint);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.lvlrow-star { flex: 0 0 auto; font-size: 21px; color: var(--wakakusa); }
+.lvlrow-go   { flex: 0 0 auto; font-size: 12.5px; font-weight: 800; color: var(--ai); }
+.lvlrow-lock { flex: 0 0 auto; font-size: 14px; opacity: .6; }
 .rung.perfect { position: relative; border-color: var(--wakakusa); }
 .rung-star {
   position: absolute; top: -7px; right: -5px; font-size: 11px;
@@ -2131,10 +2157,13 @@ function ladderFor(p) {
   return out;
 }
 
-function levelInfo(p) {
+// `at` describes a level other than the one the player is on, which is what
+// the earlier-levels list needs to name every rung without moving the ladder.
+function levelInfo(p, at) {
   const rows = allRows(p);
   const ladder = ladderFor(p);
-  const idx = Math.max(0, Math.min(prog(p).level || 0, ladder.length - 1));
+  const want = at === undefined ? (prog(p).level || 0) : at;
+  const idx = Math.max(0, Math.min(want, ladder.length - 1));
   const step = ladder[idx];
   const kana = [];
   if (step.kind === "kanji") {
@@ -2612,6 +2641,7 @@ function render() {
   else if (screen === "fish")    renderFish(p);
   else if (screen === "garden")  renderGarden(p);
   else if (screen === "topics")  renderTopics(p);
+  else if (screen === "levels")  renderLevels(p);
   else if (screen === "study")   renderStudy(p);
   else if (screen === "profile") renderProfileEditor(p);
   else if (screen === "result")  renderResult(p);
@@ -2934,6 +2964,64 @@ function replayLevel(p, i) {
   save();
 }
 
+/* Every level in the topic, as rows big enough to hit. The ladder above the
+   play card is a picture of the journey; this is the door back into it. A
+   forty-three rung ladder of 33px pills was neither. */
+function renderLevels(p) {
+  const cur = levelInfo(p);
+  const perfect = perfectSet(p);
+  const total = ladderFor(p).length;
+  const rows = [];
+
+  for (let i = 0; i < total; i++) {
+    const info = levelInfo(p, i);
+    const game = MODE_META[info.game] || { icon: "⭐", title: "" };
+    const past = i < cur.index;
+    const here = i === cur.index;
+    const star = !!perfect[i];
+    const shown = info.kana.slice(0, 6).join(" ") + (info.kana.length > 6 ? " …" : "");
+    const state = past ? "past" : here ? "here" : "locked";
+    const tag = past || here ? "button" : "span";
+    const right = star ? '<span class="lvlrow-star" title="Cleared without a mistake">★</span>'
+                : here ? '<span class="lvlrow-go">Play ›</span>'
+                : past ? '<span class="lvlrow-go">Again ›</span>'
+                : '<span class="lvlrow-lock" aria-hidden="true">🔒</span>';
+    rows.push('<' + tag + ' class="lvlrow ' + state + '"' +
+      (past || here ? ' data-lv="' + i + '"' : ' aria-disabled="true"') + '>' +
+        '<span class="lvlrow-n">' + (i + 1) + '</span>' +
+        '<span class="lvlrow-main">' +
+          '<span class="lvlrow-title">' + game.icon + ' ' + esc(game.title) +
+            (here ? ' · you are here' : '') + '</span>' +
+          '<span class="lvlrow-sub">' + esc(info.sub) + ' · ' + esc(shown) + '</span>' +
+        '</span>' + right +
+      '</' + tag + '>');
+  }
+
+  const starred = Object.keys(perfect).length;
+  screenEl.innerHTML =
+    '<div class="stack">' +
+      '<div class="sheet stack">' +
+        '<span class="eyebrow">' + courseOf(p).title + ' · ' + total + ' levels</span>' +
+        '<h2>Play an earlier level</h2>' +
+        '<p>Tap any level you have reached to play it again. It never moves you ' +
+          'backwards — and clearing one with no mistakes at all keeps a ★ ' +
+          'and pays 1000 times its number.' +
+          (starred ? ' You have ' + starred + ' here so far.' : '') + '</p>' +
+      '</div>' +
+      '<div class="lvllist">' + rows.join("") + '</div>' +
+      '<div class="row"><button class="btn btn-ghost" id="lvlBack">Back</button></div>' +
+    '</div>';
+
+  Array.prototype.forEach.call(screenEl.querySelectorAll(".lvlrow[data-lv]"), function (b) {
+    b.onclick = function () {
+      const i = parseInt(b.getAttribute("data-lv"), 10);
+      audio.prime();
+      if (i === cur.index) startLevel(p); else replayLevel(p, i);
+    };
+  });
+  document.getElementById("lvlBack").onclick = function () { go("menu"); };
+}
+
 function renderTopics(p) {
   const cards = COURSE_ORDER.map(function (id) {
     const c = COURSES[id];
@@ -3167,8 +3255,8 @@ function renderMenu(p) {
           '<strong>' + shown + '</strong>. ' + progressLine + '</p>' +
         '<div class="ladder">' + ladder + '</div>' +
         (lv.index > 0
-          ? '<p class="laddernote">Tap a level you have already passed to play it again — ' +
-            'clear it with no mistakes and it keeps a ★.</p>'
+          ? '<p class="laddernote">Been here before? <b>📜 Earlier levels</b> below opens ' +
+            'any level you have reached — clear one with no mistakes and it keeps a ★.</p>'
           : '') +
       '</div>' +
       (finished
@@ -3192,6 +3280,7 @@ function renderMenu(p) {
       '<button class="btn" id="studyBtn">📖 What&rsquo;s in this level?</button>' +
       '<div class="row">' +
         '<button class="btn" id="toTopics">📚 Topics</button>' +
+        (lv.index > 0 ? '<button class="btn" id="toLevels">📜 Earlier levels</button>' : '') +
         '<button class="btn" id="toGarden">🌱 Garden</button>' +
         (roomCanOpen(p)
           ? '<button class="btn" id="toRoom">🃏 Card Room · ' + roomCost(p) + ' questions</button>'
@@ -3204,6 +3293,8 @@ function renderMenu(p) {
     b.onclick = function () { replayLevel(p, parseInt(b.getAttribute("data-replay"), 10)); };
   });
   document.getElementById("toTopics").onclick = function () { go("topics"); };
+  const tl = document.getElementById("toLevels");
+  if (tl) tl.onclick = function () { go("levels"); };
   const rm = document.getElementById("toRoom");
   if (rm) rm.onclick = function () { audio.prime(); startRoom(p); };
   document.getElementById("playLevel").onclick = function () { startLevel(p); };
