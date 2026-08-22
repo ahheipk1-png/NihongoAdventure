@@ -1,4 +1,4 @@
-# Kana Quest
+# Nihongo Adventure
 
 A Japanese learning game for kids. Twelve topics — hiragana, katakana, kana conversion,
 numbers, animals, days of the week, verbs, nouns, adjectives, greetings, JLPT N5 vocabulary

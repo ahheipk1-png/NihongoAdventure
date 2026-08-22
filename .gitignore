@@ -1,4 +1,5 @@
-# Backups and scratch
+# Backups, scratch and the artifact source copy (index.html is canonical here)
 .kq-backup*.html
+kana-quest.html
 node_modules/
 .wrangler/

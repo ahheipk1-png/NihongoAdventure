@@ -1,11 +1,11 @@
-<title>Kana Quest</title>
+<title>Nihongo Adventure</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
 
 <style>
 /* ============================================================
-   Kana Quest
+   Nihongo Adventure
    Palette from traditional Japanese dye names:
    藍 ai · 朱 shu · 若草 wakakusa · 山吹 yamabuki, sumi ink on
    genkō yōshi (manuscript paper) ground.
@@ -2091,8 +2091,8 @@ function render() {
 
 function renderTopbar() {
   const p = currentProfile();
-  let html = '<button class="brand" id="toHome" aria-label="Kana Quest home">' +
-             '<span class="brand-mark">か</span><span class="brand-name">Kana Quest</span></button>';
+  let html = '<button class="brand" id="toHome" aria-label="Nihongo Adventure home">' +
+             '<span class="brand-mark">日</span><span class="brand-name">Nihongo Adventure</span></button>';
   if (p && screen !== "home") {
     html += '<button class="who" id="toMenu">' +
               '<span class="who-face" aria-hidden="true">' + p.face + '</span>' +
@@ -2142,8 +2142,8 @@ function renderHome() {
     '<div class="stack">' +
       '<div class="sheet stack">' +
         '<div class="hero-kana" aria-hidden="true"><span>か</span><span>な</span><span>あ</span><span>そ</span></div>' +
-        '<h1>Learn hiragana, five at a time.</h1>' +
-        '<p>Pick your name to start. Each player gets their own level, their own games, and their own kana garden.</p>' +
+        '<h1>Learn Japanese, five at a time.</h1>' +
+        '<p>Pick your name to start. Each player gets their own level, their own games, and their own garden.</p>' +
       '</div>' +
       '<div class="sheet stack">' +
         '<span class="eyebrow">Who is playing?</span>' +
