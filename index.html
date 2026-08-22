@@ -963,6 +963,10 @@ p  { margin: 0; color: var(--ink-soft); line-height: 1.6; }
 .rung.rev { border-style: dashed; }
 .rung.learned { color: var(--wakakusa); border-color: var(--wakakusa); background: var(--wakakusa-wash); }
 .rung.current { color: var(--ai); border-color: var(--ai); background: var(--ai-wash); }
+button.rung.replay { cursor: pointer; font: inherit; font-weight: 700; font-size: 13.5px; }
+button.rung.replay:hover { border-color: var(--ai); color: var(--ai); }
+button.rung.replay:focus-visible { outline: 2.5px solid var(--ai); outline-offset: 2px; }
+.laddernote { font-size: 12.5px; color: var(--ink-faint); margin: 2px 0 0; }
 .rung.perfect { position: relative; border-color: var(--wakakusa); }
 .rung-star {
   position: absolute; top: -7px; right: -5px; font-size: 11px;
@@ -2902,6 +2906,22 @@ function startLevel(p) {
   startSession(p, levelInfo(p).game);
 }
 
+/* Go back and play a level already passed - the way to earn its green star
+   after the fact. The ladder pointer is moved just long enough to build the
+   round and then put straight back, so a replay can never undo progress, and
+   finish() knows not to advance off the back of it. */
+function replayLevel(p, i) {
+  const back = prog(p).level || 0;
+  try {
+    prog(p).level = i;
+    startLevel(p);
+  } finally {
+    prog(p).level = back;      // never leave the ladder pointing backwards
+  }
+  if (session) session.replay = i;
+  save();
+}
+
 function renderTopics(p) {
   const cards = COURSE_ORDER.map(function (id) {
     const c = COURSES[id];
@@ -3108,11 +3128,19 @@ function renderMenu(p) {
   const ladder = ladderFor(p).map(function (step, i) {
     const cls = i < lv.index ? "learned" : i === lv.index ? "current" : "";
     const flawless = !!perfect[i];
-    return '<span class="rung ' + cls + (step.kind === "review" ? " rev" : "") +
-           (flawless ? " perfect" : "") + '"' +
-           (flawless ? ' title="Cleared without a mistake"' : '') + '>' + (i + 1) +
+    const past = i < lv.index;
+    const tag = past ? "button" : "span";
+    const label = flawless
+      ? "Level " + (i + 1) + " — already cleared without a mistake. Play it again?"
+      : past
+        ? "Level " + (i + 1) + " — play it again; no mistakes earns a green star"
+        : i === lv.index ? "You are here" : "Not open yet";
+    return '<' + tag + ' class="rung ' + cls + (step.kind === "review" ? " rev" : "") +
+           (flawless ? " perfect" : "") + (past ? " replay" : "") + '"' +
+           (past ? ' data-replay="' + i + '"' : '') +
+           ' title="' + esc(label) + '">' + (i + 1) +
            (flawless ? '<span class="rung-star" aria-label="cleared without a mistake">★</span>' : '') +
-           '</span>';
+           '</' + tag + '>';
   }).join("");
 
   screenEl.innerHTML =
@@ -3126,6 +3154,10 @@ function renderMenu(p) {
                  : courseOf(p).kind === "grammar" ? "New grammar — " : "New kana — ") +
           '<strong>' + shown + '</strong>. ' + progressLine + '</p>' +
         '<div class="ladder">' + ladder + '</div>' +
+        (lv.index > 0
+          ? '<p class="laddernote">Tap a level you have already passed to play it again — ' +
+            'clear it with no mistakes and it keeps a ★.</p>'
+          : '') +
       '</div>' +
       (finished
         ? '<div class="donecard">' +
@@ -3156,6 +3188,9 @@ function renderMenu(p) {
       '</div>' +
     '</div>';
 
+  Array.prototype.forEach.call(screenEl.querySelectorAll(".rung.replay"), function (b) {
+    b.onclick = function () { replayLevel(p, parseInt(b.getAttribute("data-replay"), 10)); };
+  });
   document.getElementById("toTopics").onclick = function () { go("topics"); };
   const rm = document.getElementById("toRoom");
   if (rm) rm.onclick = function () { audio.prime(); startRoom(p); };
@@ -3222,7 +3257,8 @@ function finish(p) {
     session.perfect = !!session.won && session.wrongs === 0;
     session.perfectNew = session.perfect && !perfectSet(p)[idx];
     if (session.perfect) perfectSet(p)[idx] = true;
-    session.levelUp = advanceLevel(p);
+    // A replay is for the star, not the ladder - it cannot advance anything.
+    session.levelUp = session.replay === undefined ? advanceLevel(p) : null;
   }
   save();
   go("result");
@@ -4414,7 +4450,11 @@ function renderResult(p) {
   const stillShort = (s.level && s.level.kana ? s.level.kana : []).filter(function (k) {
     return box(p, k) < (s.level && s.level.kind === "learn" ? SOLID_BOX : SOLID_BOX + 1);
   });
-  const praise = s.levelUp
+  const praise = s.replay !== undefined
+    ? (s.won
+        ? (s.perfect ? "Played again, and not a single mistake." : "Played again — the ladder stays where it was.")
+        : "Power ran out. This one was a replay, so nothing is lost.")
+    : s.levelUp
     ? "Level passed — on to the next one."
     : s.won
       ? (stillShort.length
@@ -4474,7 +4514,7 @@ function renderResult(p) {
     '</div>';
 
   if (s.levelUp) audio.star();
-  document.getElementById("again").onclick = function () { startLevel(p); };
+  document.getElementById("again").onclick = function () { startLevel(p); };   // always the current level
   const dr = document.getElementById("toDraw");
   if (dr) dr.onclick = function () { audio.prime(); startQuiz(p, "draw"); };
   document.getElementById("toGarden").onclick = function () { go("garden"); };
