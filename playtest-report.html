@@ -308,7 +308,39 @@ at 5 of 10 — turned out to be my test harness, not the game; it re-deals corre
 </div>
 
 <div class="finding critical">
-  <div class="head"><span class="chip critical">Critical</span><h3>4. The result screen contradicts itself</h3></div>
+  <div class="head"><span class="chip critical">Critical</span><span class="chip good">Fixed</span><h3>4. The new illustrations were giving the answer away</h3></div>
+  <p>A picture <em>is</em> the meaning. Putting one beside a Japanese prompt whose answer is the
+  meaning hands the child the answer — they name the picture without reading anything. This was a
+  regression introduced by today's illustration work: it made the game look better while teaching
+  less.</p>
+  <dl>
+    <dt>Evidence</dt><dd>Measured on Sprout/Animals: <strong>12 of 12 questions</strong> showed
+      いぬ beside a picture of a dog and then asked what いぬ means. Sprout never reverses
+      direction, so this was <em>every</em> question the youngest tier saw.</dd>
+    <dt>Fix applied</dt><dd>Pictures now accompany the <strong>English form only</strong>. In Match
+      they moved onto <strong>every answer tile</strong> — so the exercise became "read いぬ, choose
+      the dog", which is what was intended, and because all four tiles carry a picture none of them
+      is a giveaway. Fruit Basket moved its art to the bags for the same reason.</dd>
+    <dt>Measured after</dt><dd>0 reveals across 60 questions; Sprout has pictures on
+      <strong>15/15 rounds</strong>, all tiles carrying art.</dd>
+  </dl>
+</div>
+
+<div class="finding major">
+  <div class="head"><span class="chip major">Major</span><span class="chip good">Fixed</span><h3>5. Grammar tiles were offering kanji as particles</h3></div>
+  <p>Kanji are merged into every topic so that kanji levels can appear anywhere. But the distractor
+  picker could fall back onto them, and the display helper returns the raw key when an item has no
+  such form — so a grammar question offered <span class="m">は / を / 月 / 雨</span>.</p>
+  <dl>
+    <dt>Fix applied</dt><dd>Candidates lacking the requested form are skipped outright, so a key can
+      never be rendered as its own label.</dd>
+    <dt>Measured after</dt><dd><strong>0 leaks across 1,320 answer tiles</strong> spanning six
+      topics.</dd>
+  </dl>
+</div>
+
+<div class="finding critical">
+  <div class="head"><span class="chip critical">Critical</span><h3>6. The result screen contradicts itself</h3></div>
   <p>Winning a round and advancing a level are two independent systems, but they are presented as
   one message.</p>
   <dl>
@@ -327,7 +359,7 @@ at 5 of 10 — turned out to be my test harness, not the game; it re-deals corre
 </div>
 
 <div class="finding major">
-  <div class="head"><span class="chip major">Major</span><h3>5. Ninja is close to unwinnable</h3></div>
+  <div class="head"><span class="chip major">Major</span><h3>7. Ninja is close to unwinnable</h3></div>
   <p>Ninja stacks a bigger quota (14), a faster drain (5.2/s), a smaller refill (15) and a harsher
   penalty (−12). Those compound.</p>
   <div class="tablewrap">
@@ -356,7 +388,7 @@ at 5 of 10 — turned out to be my test harness, not the game; it re-deals corre
 </div>
 
 <div class="finding major">
-  <div class="head"><span class="chip major">Major</span><h3>6. Fishing Pond is the odd one out in every tier</h3></div>
+  <div class="head"><span class="chip major">Major</span><h3>8. Fishing Pond is the odd one out in every tier</h3></div>
   <p>Fishing is the only game at a 1.0× drain multiplier; the others sit at 0.55–0.75×. On top of
   that it is the only game where you must also <em>track and hit a moving target</em>, a cost the
   simulation does not even capture.</p>
@@ -373,7 +405,7 @@ at 5 of 10 — turned out to be my test harness, not the game; it re-deals corre
 </div>
 
 <div class="finding major">
-  <div class="head"><span class="chip major">Major</span><h3>7. Finishing a topic does not mean knowing it — and nothing says so</h3></div>
+  <div class="head"><span class="chip major">Major</span><h3>9. Finishing a topic does not mean knowing it — and nothing says so</h3></div>
   <p>A level advances when 80% of its items reach box 2. The garden calls an item mastered at box 4.
   Those two bars are far apart, and only one of them gates progress.</p>
   <div class="grid2">
@@ -395,7 +427,7 @@ at 5 of 10 — turned out to be my test harness, not the game; it re-deals corre
 </div>
 
 <div class="finding minor">
-  <div class="head"><span class="chip minor">Minor</span><h3>8. Match punishes a retry that Fruit Basket rewards</h3></div>
+  <div class="head"><span class="chip minor">Minor</span><h3>10. Match punishes a retry that Fruit Basket rewards</h3></div>
   <p>In Match, answering wrongly and then correctly gives <strong>no score and no power</strong> —
   the code runs <code>bump()</code> but never <code>powerGain()</code>. In Fruit Basket the same
   sequence awards both.</p>
@@ -414,7 +446,7 @@ at 5 of 10 — turned out to be my test harness, not the game; it re-deals corre
 </div>
 
 <div class="finding minor">
-  <div class="head"><span class="chip minor">Minor</span><h3>9. Two hours of kana before the fun topics open</h3></div>
+  <div class="head"><span class="chip minor">Minor</span><h3>11. Two hours of kana before the fun topics open</h3></div>
   <p>Topics unlock strictly in order, so Animals — the topic with the best illustrations and the most
   obvious appeal to a young child — sits behind Hiragana, Katakana and Kana Mix.</p>
   <dl>
@@ -430,7 +462,7 @@ at 5 of 10 — turned out to be my test harness, not the game; it re-deals corre
 </div>
 
 <div class="finding minor">
-  <div class="head"><span class="chip minor">Minor</span><h3>10. Accessibility gaps worth an hour</h3></div>
+  <div class="head"><span class="chip minor">Minor</span><h3>12. Accessibility gaps worth an hour</h3></div>
   <ul class="tight">
     <li><strong>No <code>lang</code> attribute.</strong> Assistive tech does not know the page is
       part-Japanese, so kana get read with an English voice. (A <code>color-scheme</code> hint went
@@ -448,7 +480,7 @@ at 5 of 10 — turned out to be my test harness, not the game; it re-deals corre
 </div>
 
 <div class="finding minor">
-  <div class="head"><span class="chip minor">Minor</span><h3>11. Further points from the independent review</h3></div>
+  <div class="head"><span class="chip minor">Minor</span><h3>13. Still open, from the independent review</h3></div>
   <p>Six expert lenses reviewed the source alongside my playthrough, each finding put through a
   sceptic that tried to refute it against the code. These survived:</p>
   <ul class="tight">
@@ -466,9 +498,24 @@ at 5 of 10 — turned out to be my test harness, not the game; it re-deals corre
     <li><strong>It is not spaced repetition, strictly.</strong> The Leitner boxes have no clock:
       an item at box 4 is "known" forever rather than becoming due again after a delay. Fine for a
       game; worth knowing it will not by itself defeat forgetting over weeks.</li>
+    <li><strong>Stale timers can redraw a dead board.</strong> The end-of-round callbacks in Word
+      Building and Pair Up are not guarded against the player having navigated away, so a finished
+      round can paint itself over another screen with the power clock already cancelled.</li>
+    <li><strong>Katakana's Word Building level can deal an impossible board</strong> — at that point
+      every candidate loanword needs katakana the player has not been shown.</li>
+    <li><strong>A topic reports complete on <em>arrival</em> at its last level</strong>, not on
+      passing it, so the next topic unlocks one level early.</li>
+    <li><strong>Fishing and Word Building still demote on non-knowledge slips</strong> — a mis-tap
+      on a moving fish, or a right letter in the wrong slot. Pair Up's version of this is fixed;
+      these two are not.</li>
+    <li><strong>Delete-a-player sits behind an unlabelled ⚙ on the shared picker</strong>, so one
+      child can wipe a sibling's progress with two taps and no confirmation beyond a browser
+      dialog.</li>
   </ul>
-  <p>Two proposed findings were <em>refuted</em> during verification and are not listed — the
-  sceptic pass earned its place.</p>
+  <p><strong>Six</strong> proposed findings were <em>refuted</em> during verification and are not
+  listed. The sceptic even corrected one of its own side's arithmetic — a lens claimed a perfect
+  player suffers "4+ unavoidable mismatches" per board, and the verifier simulated the real board
+  and measured 2.55. That is the pass earning its place.</p>
 </div>
 
 <h2>Illustrations, now that they are in the games</h2>

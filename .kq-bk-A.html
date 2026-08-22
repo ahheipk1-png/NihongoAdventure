@@ -39,11 +39,11 @@
   --pond:         #cfe6f2;
   --pond-deep:    #a9d2e8;
 
-  --fruit-1:      #c0392b;
-  --fruit-2:      #a86608;
-  --fruit-3:      #4c7a26;
-  --fruit-4:      #6d47a8;
-  --fruit-5:      #b83a70;
+  --fruit-1:      #d94f42;
+  --fruit-2:      #e08a1e;
+  --fruit-3:      #6aa63c;
+  --fruit-4:      #8360bd;
+  --fruit-5:      #d6528a;
 
   --on-accent:    #ffffff;
   --photo-opacity: .34;
@@ -316,7 +316,7 @@ p  { margin: 0; color: var(--ink-soft); line-height: 1.6; }
 .btn-ghost { background: transparent; border-color: transparent; color: var(--ink-soft); }
 .btn-ghost:hover { background: var(--ground-deep); }
 .btn-danger { color: var(--shu); border-color: var(--shu); background: transparent; }
-.btn-sm { padding: 9px 13px; font-size: 13.5px; min-height: 44px; border-radius: 10px; }
+.btn-sm { padding: 7px 12px; font-size: 13.5px; min-height: 38px; border-radius: 10px; }
 
 /* ---------- home ---------- */
 .hero-kana {
@@ -427,22 +427,11 @@ p  { margin: 0; color: var(--ink-soft); line-height: 1.6; }
 }
 .cell.good { border-color: var(--wakakusa); background: var(--wakakusa-wash); }
 .cell.bad  { border-color: var(--shu);      background: var(--shu-wash); }
-.cell-say { position: absolute; right: 8px; bottom: 8px; z-index: 2; }
 .cell.pop  { animation: pop .34s cubic-bezier(.2,1.4,.4,1); }
 .cell.shake{ animation: shake .38s ease; }
 @keyframes pop   { 0%{transform:scale(.86)} 60%{transform:scale(1.04)} 100%{transform:scale(1)} }
 @keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-9px)} 40%{transform:translateX(8px)} 60%{transform:translateX(-5px)} 80%{transform:translateX(3px)} }
 
-
-/* ---------- speaker buttons ---------- */
-.say {
-  border: 1.5px solid var(--rule); background: var(--paper); color: var(--ink-soft);
-  border-radius: 50%; width: 30px; height: 30px; min-width: 30px;
-  display: inline-grid; place-items: center; font-size: 14px; padding: 0;
-  line-height: 1; flex: none;
-}
-.say:hover { border-color: var(--ai); color: var(--ai); }
-.say.big { width: 44px; height: 44px; min-width: 44px; font-size: 19px; }
 
 /* ---------- answer tiles ---------- */
 .answers { display: grid; gap: 10px; }
@@ -466,13 +455,6 @@ p  { margin: 0; color: var(--ink-soft); line-height: 1.6; }
 @media (pointer: coarse) { .ans .key { display: none; } }
 .ans.correct { background: var(--wakakusa-wash); border-color: var(--wakakusa); color: var(--wakakusa); }
 .ans.wrong   { background: var(--shu-wash);      border-color: var(--shu);      color: var(--shu); }
-/* colour alone is not a signal a colour-blind child can read */
-.ans.correct::before, .ans.wrong::before {
-  position: absolute; top: 4px; right: 8px; font-size: 15px; font-weight: 800;
-}
-.ans.correct::before { content: "✓"; }
-.ans.wrong::before   { content: "✗"; }
-.pip.miss { background: transparent; box-shadow: inset 0 0 0 2px var(--shu); }
 .ans.dim     { opacity: .38; }
 .ans[disabled]{ cursor: default; }
 
@@ -803,24 +785,12 @@ p  { margin: 0; color: var(--ink-soft); line-height: 1.6; }
 .vcell.mastered .kjc { color: var(--wakakusa); }
 .vcell .vjp { position: relative; font-family: var(--font-kana); font-weight: 700; font-size: 17px; color: var(--ink); }
 .vcell .ven { position: relative; font-size: 11.5px; font-weight: 600; color: var(--ink-faint); }
-.vcell .say { position: absolute; top: 6px; right: 6px; width: 26px; height: 26px; min-width: 26px; font-size: 12px; }
 .vcell.seen { background: var(--paper); }
 .vcell.mastered { border-color: var(--wakakusa); }
 .vcell.mastered .ven { color: var(--wakakusa); }
 .vcell.locked { opacity: .4; }
 
 /* ---------- study sheet ---------- */
-.study-row.spell { flex-direction: column; align-items: stretch; gap: 9px; }
-.spell-head { display: flex; align-items: center; gap: 11px; }
-.spell-meta { display: flex; flex-direction: column; gap: 1px; margin-right: auto; }
-.study-en-inline { font-size: 13px; font-weight: 700; color: var(--ink-soft); }
-.spell-row { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
-.spell-tile {
-  font-family: var(--font-kana); font-weight: 700; font-size: 26px;
-  border: 2px solid var(--ai); background: var(--ai-wash); color: var(--ink);
-  border-radius: 10px; min-width: 46px; text-align: center; padding: 4px 8px;
-}
-.spell-plus { font-weight: 800; color: var(--ink-faint); }
 .study-list { display: flex; flex-direction: column; gap: 8px; }
 .study-row {
   display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
@@ -917,12 +887,6 @@ p  { margin: 0; color: var(--ink-soft); line-height: 1.6; }
 .tier[aria-pressed="true"] { border-color: var(--ai); background: var(--ai-wash); }
 .tier-name { font-weight: 800; font-size: 16px; }
 .tier-sub { font-size: 12.5px; color: var(--ink-soft); font-weight: 500; line-height: 1.45; }
-.paces { display: flex; gap: 8px; flex-wrap: wrap; }
-.pace {
-  border: 2px solid var(--rule); background: var(--paper); border-radius: var(--r-md);
-  padding: 9px 15px; font-weight: 700; font-size: 14px; min-height: 44px;
-}
-.pace[aria-pressed="true"] { border-color: var(--ai); background: var(--ai-wash); }
 .faces { display: flex; gap: 7px; flex-wrap: wrap; }
 .face { font-size: 26px; line-height: 1; border: 2px solid var(--rule); background: var(--paper); border-radius: 12px; padding: 7px 9px; }
 .face[aria-pressed="true"] { border-color: var(--ai); background: var(--ai-wash); }
@@ -958,13 +922,11 @@ p  { margin: 0; color: var(--ink-soft); line-height: 1.6; }
   <span class="petal" style="left:63vw;animation-duration:15s;animation-delay:-7s">🌸</span>
   <span class="petal" style="left:86vw;animation-duration:20s;animation-delay:-1s">🌸</span>
 </div>
-<div id="srlive" aria-live="polite" class="sr"></div>
 <div id="app">
   <header class="topbar" id="topbar"></header>
   <div class="wordcard" id="wordcard" hidden title="Tap for the next word">
     <img alt="">
     <div class="wc-text"><div class="wc-jp"></div><div class="wc-en"></div></div>
-    <button class="say" id="wcSay" aria-label="Hear it" title="Hear it">🔊</button>
     <span class="wc-tag">word card</span>
   </div>
   <main id="screen"></main>
@@ -1324,7 +1286,7 @@ const TIERS = {
   ninja: {
     label:"Ninja", blurb:"Six choices, optional typing, and が/ざ/だ/ば/ぱ once the basics are solid.",
     choices:6, reverse:0.4, retry:false, roundLen:15,
-    power:{ quota:14, drain:4.2, refill:18, penalty:8 },
+    power:{ quota:14, drain:5.2, refill:15, penalty:12 },
     modes:["match","pairs","fruit","word","fish"], dakuten:true
   }
 };
@@ -1332,10 +1294,6 @@ const TIERS = {
 
 /* ---------- katakana loanwords, for Word Building ---------- */
 const KATA_WORDS = [
-  { w:"アカ",       en:"red (aka)", pic:"🔴", row:1 },
-  { w:"イカ",       en:"squid",  pic:"🦑", row:1 },
-  { w:"カオ",       en:"face",   pic:"😀", row:1 },
-  { w:"ココア", en:"cocoa",  pic:"☕", row:2 },
   { w:"バス",       en:"bus",    pic:"🚌", row:5 },
   { w:"ペン",       en:"pen",    pic:"🖊️", row:9 },
   { w:"カメラ", en:"camera", pic:"📷", row:8 },
@@ -1711,7 +1669,11 @@ function pickForms(p) {
 function courseDone(p, id) {
   const saved = (p.progress || {})[id];
   if (!saved) return false;
-  return !!saved.done;
+  const was = p.course;
+  p.course = id;
+  const total = ladderFor(p).length;
+  p.course = was;
+  return saved.level >= total - 1;
 }
 
 function courseUnlocked(p, id) {
@@ -1786,33 +1748,9 @@ function currentProfile() {
 }
 function tierOf(p) { return TIERS[p.tier] || TIERS.explorer; }
 function allRows(p) { return unitsOf(p); }
-// A box is {b: level, t: when it was last answered}. Older saves stored a bare
-// number; both shapes are read here so nothing has to be migrated eagerly.
-function boxRec(p, k) {
-  const raw = prog(p).boxes[k];
-  if (raw === undefined) return { b: 0, t: 0 };
-  return (typeof raw === "number") ? { b: raw, t: 0 } : raw;
-}
-function box(p, k) { return boxRec(p, k).b; }
-
-// How long an item rests before it is worth asking again. Without this a
-// "mastered" item is just one answered twice in the same minute.
-const DUE_AFTER = [0, 20 * 60e3, 24 * 3600e3, 3 * 24 * 3600e3, 7 * 24 * 3600e3];
-function dueAt(rec) { return (rec.t || 0) + (DUE_AFTER[rec.b] || 0); }
-function isDue(p, k, now) { return (now || Date.now()) >= dueAt(boxRec(p, k)); }
-
+function box(p, k) { return prog(p).boxes[k] || 0; }
 function bump(p, k, right) {
-  const rec = boxRec(p, k);
-  const now = Date.now();
-  let b = rec.b;
-  if (right) {
-    // Past SOLID_BOX an item only climbs if it has actually rested. Answering
-    // the same card twice in one round should not look like memory.
-    if (b < SOLID_BOX || now >= dueAt(rec)) b = Math.min(MASTERED, b + 1);
-  } else {
-    b = Math.max(0, b - 2);
-  }
-  prog(p).boxes[k] = { b: b, t: now };
+  prog(p).boxes[k] = right ? Math.min(MASTERED, box(p, k) + 1) : Math.max(0, box(p, k) - 2);
 }
 
 function newProfile(name, face, tier) {
@@ -1883,20 +1821,13 @@ function ladderFor(p) {
     }
   }
 
-  // Slot a kanji level in as every fifth level, and let later review levels
-  // carry the last couple of groups so a kanji gets more than one exposure.
+  // Slot a kanji level in as every fifth level.
   const out = [];
-  const seenGroups = [];
   let g = kanjiOffset(p.course);
   base.forEach(function (step) {
-    if (step.kind === "review" && seenGroups.length) {
-      step = { kind: "review", rows: step.rows, carry: seenGroups.slice(-2) };
-    }
     out.push(step);
     if (out.length % 5 === 4) {
-      const grp = g % KANJI_GROUPS.length;
-      out.push({ kind: "kanji", rows: [], group: grp });
-      seenGroups.push(grp);
+      out.push({ kind: "kanji", rows: [], group: g % KANJI_GROUPS.length });
       g += 1;
     }
   });
@@ -1913,10 +1844,6 @@ function levelInfo(p) {
     KANJI_KEYS[step.group].forEach(function (k) { kana.push(k); });
   } else {
     step.rows.forEach(function (r) { rows[r].keys.forEach(function (k) { kana.push(k); }); });
-    // review levels fold in the kanji already met, so they are revisited
-    (step.carry || []).forEach(function (grp) {
-      KANJI_KEYS[grp].forEach(function (k) { if (kana.indexOf(k) === -1) kana.push(k); });
-    });
   }
   return {
     index: idx,
@@ -1947,18 +1874,10 @@ function rowsIntroduced(p) {
   return max;
 }
 
-// New material passes at box 2 so first contact is not punishing; a review
-// level asks for box 3, so "finished the topic" means something.
-function passBar(p) {
-  const kind = levelInfo(p).kind;
-  return kind === "learn" ? SOLID_BOX : SOLID_BOX + 1;
-}
-
 function levelSolid(p) {
   const info = levelInfo(p);
   if (!info.kana.length) return false;
-  const bar = passBar(p);
-  const solid = info.kana.filter(function (k) { return box(p, k) >= bar; }).length;
+  const solid = info.kana.filter(function (k) { return box(p, k) >= SOLID_BOX; }).length;
   return solid / info.kana.length >= 0.8;
 }
 
@@ -1966,14 +1885,9 @@ function levelSolid(p) {
 // it can be passed.
 function advanceLevel(p) {
   const ladder = ladderFor(p);
-  const at = prog(p).level || 0;
+  if ((prog(p).level || 0) >= ladder.length - 1) return null;
   if (!levelSolid(p)) return null;
-  if (at >= ladder.length - 1) {
-    // The last level is passable too - that is what finishing a topic means.
-    if (!prog(p).done) { prog(p).done = true; p.stars += 10; }
-    return null;
-  }
-  prog(p).level = at + 1;
+  prog(p).level = (prog(p).level || 0) + 1;
   p.stars += 5;
   return levelInfo(p);
 }
@@ -1983,16 +1897,6 @@ function advanceLevel(p) {
 function boardPool(p) {
   const info = levelInfo(p);
   let kana = info.kana.slice();
-
-  // Anything learned earlier that has fallen due outranks new material — that
-  // is the whole point of spacing. Cap it so a board never becomes all revision.
-  const now = Date.now();
-  const overdue = learnedKana(p).filter(function (k) {
-    return kana.indexOf(k) === -1 && box(p, k) > 0 && isDue(p, k, now);
-  });
-  if (overdue.length) {
-    kana = pickFive(p, overdue).slice(0, 2).concat(kana);
-  }
   if (kana.length < BOARD_SIZE) {
     const older = learnedKana(p).filter(function (k) { return kana.indexOf(k) === -1; });
     if (older.length) {
@@ -2051,72 +1955,6 @@ function picFor(key) { return (window.PICS && window.PICS[key]) || null; }
 // form. Next to a Japanese prompt whose answer is the meaning it would simply
 // give the answer away.
 function artOK(form) { return form === "en"; }
-
-/* ---------- pronunciation ----------
-   Clips are generated ahead of time (window.AUDIO, keyed by the Japanese
-   string) so every child hears the same correct Japanese, rather than whatever
-   voice the device happens to have - many have none at all. A device ja-JP
-   voice is used only to cover anything the clip set is missing. */
-const speech = (function () {
-  let el = null, jaVoice = null;
-
-  function findVoice() {
-    if (!("speechSynthesis" in window)) return;
-    const v = window.speechSynthesis.getVoices() || [];
-    jaVoice = v.find(function (x) { return /^ja(-|_|$)/i.test(x.lang); }) || null;
-  }
-  if ("speechSynthesis" in window) {
-    findVoice();
-    window.speechSynthesis.addEventListener("voiceschanged", findVoice);
-  }
-
-  function clip(key) { return (window.AUDIO && window.AUDIO[key]) || null; }
-
-  return {
-    // Something can be spoken if there is a clip for it, or a Japanese voice.
-    can: function (key) { return !!clip(key) || !!jaVoice; },
-    say: function (key) {
-      const src = clip(key);
-      if (src) {
-        try {
-          if (!el) { el = new Audio(); el.preload = "auto"; }
-          el.pause(); el.src = src; el.currentTime = 0;
-          const pr = el.play();
-          if (pr && pr.catch) pr.catch(function () {});
-          return;
-        } catch (e) { /* fall through to the device voice */ }
-      }
-      if (!jaVoice) return;
-      try {
-        window.speechSynthesis.cancel();
-        const u = new SpeechSynthesisUtterance(key);
-        u.voice = jaVoice; u.lang = jaVoice.lang; u.rate = 0.85;
-        window.speechSynthesis.speak(u);
-      } catch (e) { /* no-op */ }
-    }
-  };
-})();
-
-// Hearing an item is the same as being told its sound, so a speaker is hidden
-// exactly where a romaji answer would be: on the kana courses, while asking.
-// On a vocabulary course, hearing "inu" does not reveal that it means "dog".
-function audioOK(p, answerForm) {
-  if (!answerForm) return true;                       // not a question - always fine
-  if (answerForm === "romaji") return false;          // the stated exception
-  return !isJpForm(answerForm) || courseOf(p).kind === "vocab";
-}
-
-// `answerForm` omitted means "nothing is being tested here".
-function speakerBtn(p, key, answerForm) {
-  if (!speech.can(key)) return "";
-  if (!audioOK(p, answerForm)) return "";
-  return '<button class="say" data-say="' + esc(key) + '" aria-label="Hear it" title="Hear it">' +
-         '🔊</button>';
-}
-
-function sayIf(p, key, answerForm) {
-  if (speech.can(key) && audioOK(p, answerForm)) speech.say(key);
-}
 
 function picImg(key, cls) {
   const src = picFor(key);
@@ -2256,22 +2094,13 @@ function stopLoops() {
    drain gently; the fishing pond drains at full speed.
    ------------------------------------------------------------ */
 
-// Fishing is the one game whose pace the player does not control - it has to
-// wait for a fish - so it carries the gentlest drain, not the harshest.
-// Fishing still drains fastest - it is the arcade one - but nowhere near the
-// old 1.0, which made it unwinnable. The simulation understates it too, since
-// it cannot model hunting a moving fish, so this errs generous on purpose.
-const DRAIN_RATE = { fish: 0.85, match: 0.75, fruit: 0.7, word: 0.6, pairs: 0.6 };
-
-// A hard clock is an accessibility barrier as much as a difficulty setting.
-const PACE = { normal: 1, gentle: 0.45, off: 0 };
-function paceOf(p) { return PACE[p.pace] !== undefined ? PACE[p.pace] : 1; }
+const DRAIN_RATE = { fish: 1, match: 0.75, fruit: 0.7, word: 0.6, pairs: 0.55 };
 
 function powerInit(p, mode) {
   const base = tierOf(p).power;
   session.cfg = {
     quota: base.quota,
-    drain: base.drain * (DRAIN_RATE[mode] || 0.75) * paceOf(p),
+    drain: base.drain * (DRAIN_RATE[mode] || 0.75),
     refill: base.refill,
     penalty: base.penalty
   };
@@ -2293,11 +2122,6 @@ function powerHUD() {
          '</div>';
 }
 
-function announce(msg) {
-  const el = document.getElementById("srlive");
-  if (el) el.textContent = msg;
-}
-
 function drawPower() {
   const fill = document.getElementById("powerFill");
   if (!fill) return;
@@ -2314,8 +2138,6 @@ function powerGain(p) {
   session.power = Math.min(100, session.power + session.cfg.refill);
   session.score += 1;
   drawPower();
-  announce("Correct. " + session.score + " of " + session.quota +
-           ", power " + Math.round(session.power) + " percent.");
   if (session.score >= session.quota) { session.won = true; return true; }
   return false;
 }
@@ -2323,7 +2145,6 @@ function powerGain(p) {
 function powerLose(p) {
   session.power = Math.max(0, session.power - session.cfg.penalty);
   drawPower();
-  announce("Not that one. Power " + Math.round(session.power) + " percent.");
 }
 
 function startPowerClock(p) {
@@ -2336,7 +2157,7 @@ function startPowerClock(p) {
     if (last === null) last = ts;
     const dt = Math.min(0.05, (ts - last) / 1000);
     last = ts;
-    if (!session.paused && session.cfg.drain > 0) {
+    if (!session.paused) {
       session.power -= session.cfg.drain * dt;
       drawPower();
       if (session.power <= 0) { session.power = 0; drawPower(); audio.bad(); finish(p); return; }
@@ -2419,7 +2240,7 @@ function renderHome() {
   const grid = state.profiles.map(function (p) {
     const rows = allRows(p);
     const total = rows.reduce(function (n, r) { return n + r.keys.length; }, 0);
-    const done = learnedKana(p).filter(function (k) { return box(p, k) >= MASTERED; }).length;
+    const done = Object.keys(prog(p).boxes).filter(function (k) { return prog(p).boxes[k] >= MASTERED; }).length;
     const pct = total ? Math.round((done / total) * 100) : 0;
     const lv = levelInfo(p);
     return '<div class="pslot">' +
@@ -2430,7 +2251,7 @@ function renderHome() {
                '<span class="profile-meta">' + done + ' of ' + total + ' mastered</span>' +
                '<span class="profile-bar"><i style="width:' + pct + '%"></i></span>' +
              '</button>' +
-
+             '<button class="profile-gear" data-edit="' + p.id + '" aria-label="Settings for ' + esc(p.name) + '">⚙</button>' +
            '</div>';
   }).join("");
 
@@ -2458,7 +2279,9 @@ function renderHome() {
   screenEl.querySelectorAll("[data-open]").forEach(function (b) {
     b.onclick = function () { audio.prime(); state.activeId = b.getAttribute("data-open"); go("menu"); };
   });
-
+  screenEl.querySelectorAll("[data-edit]").forEach(function (b) {
+    b.onclick = function () { draft = null; state.activeId = b.getAttribute("data-edit"); go("profile"); };
+  });
   const add = document.getElementById("addPlayer");
   if (add) add.onclick = function () { audio.prime(); draft = null; state.activeId = null; go("profile"); };
 
@@ -2486,8 +2309,7 @@ function renderProfileEditor(p) {
     draft = {
       name: p ? p.name : "", face: p ? p.face : pick(FACES),
       tier: p ? p.tier : "explorer", typing: p ? !!p.typing : false,
-      unlockAll: p ? !!p.unlockAll : false,
-      pace: (p && p.pace) || "normal"
+      unlockAll: p ? !!p.unlockAll : false
     };
   }
 
@@ -2514,13 +2336,6 @@ function renderProfileEditor(p) {
       '<div class="sheet stack">' +
         '<span class="eyebrow">Level</span>' +
         '<div class="tiers">' + tiers + '</div>' +
-        '<span class="eyebrow">Speed of the power bar</span>' +
-        '<div class="paces">' +
-          [["normal","Normal"],["gentle","Gentle"],["off","No timer"]].map(function (o) {
-            return '<button class="pace" data-pace="' + o[0] + '" aria-pressed="' +
-                   (draft.pace === o[0]) + '">' + o[1] + '</button>';
-          }).join("") +
-        '</div>' +
         '<label class="row" style="gap:8px;font-weight:700;font-size:14.5px;cursor:pointer">' +
           '<input type="checkbox" id="unlockAllIn"' + (draft.unlockAll ? " checked" : "") + ' style="width:19px;height:19px">' +
           'Open every topic now (skip the order)</label>' +
@@ -2550,19 +2365,16 @@ function renderProfileEditor(p) {
   if (typingIn) typingIn.onchange = function () { draft.typing = typingIn.checked; };
   const unlockIn = document.getElementById("unlockAllIn");
   if (unlockIn) unlockIn.onchange = function () { draft.unlockAll = unlockIn.checked; };
-  screenEl.querySelectorAll("[data-pace]").forEach(function (b) {
-    b.onclick = function () { draft.pace = b.getAttribute("data-pace"); renderProfileEditor(p); };
-  });
 
   document.getElementById("saveP").onclick = function () {
     const name = (draft.name || "").trim() || "Player " + (state.profiles.length + 1);
     if (isNew) {
       const np = newProfile(name, draft.face, draft.tier);
-      np.typing = draft.typing; np.unlockAll = draft.unlockAll; np.pace = draft.pace;
+      np.typing = draft.typing; np.unlockAll = draft.unlockAll;
       state.profiles.push(np);
       state.activeId = np.id;
     } else {
-      p.name = name; p.face = draft.face; p.tier = draft.tier; p.typing = draft.typing; p.unlockAll = draft.unlockAll; p.pace = draft.pace;
+      p.name = name; p.face = draft.face; p.tier = draft.tier; p.typing = draft.typing; p.unlockAll = draft.unlockAll;
       prog(p).level = Math.max(0, Math.min(prog(p).level || 0, ladderFor(p).length - 1));   // ninja → explorer shortens the ladder
     }
     draft = null;
@@ -2659,11 +2471,8 @@ function renderTopics(p) {
     const was = p.course; p.course = id;
     const total = ladderFor(p).length;
     const items = unitsOf(p).reduce(function (n, u) { return n + u.keys.length; }, 0);
-    const ownKeys = unitsOf(p).reduce(function (a, u) { return a.concat(u.keys); }, []);
-    const mastered = ownKeys.filter(function (k) {
-      const raw = ((saved || {}).boxes || {})[k];
-      const b = (raw === undefined) ? 0 : (typeof raw === "number" ? raw : raw.b);
-      return b >= MASTERED; }).length;
+    const mastered = Object.keys((saved || {}).boxes || {}).filter(function (k) {
+      return saved.boxes[k] >= MASTERED; }).length;
     p.course = was;
 
     const lvl = (saved ? saved.level : 0) + 1;
@@ -2710,15 +2519,9 @@ function studyRowsHTML(p) {
   const lv = levelInfo(p);
   const c = courseOf(p);
   const forms = lv.forms || c.forms;
-  const game = lv.game;
   const isGrammar = c.kind === "grammar" && lv.kind !== "kanji";
-
-  // Nothing is being tested on the study sheet, so everything may be heard.
-  function say(key) { return speakerBtn(p, key, null); }
-
   return lv.kana.map(function (key) {
     const it = itemOf(p, key);
-
     if (isGrammar) {
       const sentence = esc(key).replace(/＿/g,
         '<span class="study-ans">' + esc(it.ans) + '</span>');
@@ -2726,49 +2529,13 @@ function studyRowsHTML(p) {
                '<div class="study-jp">' + sentence + '</div>' +
                '<div class="study-en">' + esc(it.en || "") + '</div></div>';
     }
-
-    // Word Building asks the child to SPELL the word, so the sheet has to show
-    // the spelling - the word broken into the very tiles they will be handed.
-    if (game === "word") {
-      const letters = key.split("").map(function (ch) {
-        return '<span class="spell-tile">' + esc(ch) + '</span>';
-      }).join('<span class="spell-plus" aria-hidden="true">+</span>');
-      return '<div class="study-row spell">' +
-               '<div class="spell-head">' +
-                 (picFor(key) ? picImg(key, "study-img")
-                   : it.pic ? '<span class="study-pic" aria-hidden="true">' + it.pic + '</span>' : '') +
-                 '<div class="spell-meta">' +
-                   '<span class="study-part kana">' + esc(key) + '</span>' +
-                   '<span class="study-en-inline">' + esc(showForm(p, key, forms[forms.length - 1])) + '</span>' +
-                 '</div>' + say(key) +
-               '</div>' +
-               '<div class="spell-row">' + letters + '</div>' +
-             '</div>';
-    }
-
-    // Pair Up and Fruit Basket are matching games: show the two sides paired
-    // the way the board will present them.
-    if (game === "pairs" || game === "fruit") {
-      const a = showForm(p, key, forms[0]);
-      const b = showForm(p, key, forms[forms.length - 1]);
-      return '<div class="study-row">' +
-               (picFor(key) ? picImg(key, "study-img") : '') +
-               '<span class="study-part ' + formClass(forms[0]) + '">' + esc(a) + '</span>' +
-               '<span class="study-arrow" aria-hidden="true">⇄</span>' +
-               '<span class="study-part ' + formClass(forms[forms.length - 1]) + '">' + esc(b) + '</span>' +
-               say(key) +
-             '</div>';
-    }
-
-    // Match, Fishing Pond and the kanji levels: every form, left to right.
     const parts = forms.map(function (fm) {
       return '<span class="study-part ' + formClass(fm) + '">' + esc(showForm(p, key, fm)) + '</span>';
     }).join('<span class="study-arrow" aria-hidden="true">→</span>');
     return '<div class="study-row">' +
              (picFor(key) ? picImg(key, "study-img")
                : it.pic ? '<span class="study-pic" aria-hidden="true">' + it.pic + '</span>' : '') +
-             parts + say(key) +
-           '</div>';
+             parts + '</div>';
   }).join("");
 }
 
@@ -2848,10 +2615,7 @@ function renderMenu(p) {
       '<div class="sheet stack">' +
         '<span class="eyebrow">' + courseOf(p).title + ' · ' + lv.label + ' of ' + lv.total + '</span>' +
         '<h1>Hi ' + esc(p.name) + ' ' + p.face + '</h1>' +
-        '<p>' + (lv.kind === "review" ? "Review level — "
-                 : lv.kind === "kanji" ? "漢字 — "
-                 : courseOf(p).kind === "vocab" ? "New words — "
-                 : courseOf(p).kind === "grammar" ? "New grammar — " : "New kana — ") +
+        '<p>' + (lv.kind === "review" ? "Review level — " : "New kana — ") +
           '<strong>' + lv.kana.join(" ") + '</strong>. ' +
           done + ' of ' + learned.length + ' mastered so far.</p>' +
         '<div class="ladder">' + ladder + '</div>' +
@@ -2986,9 +2750,7 @@ function renderMatch(p) {
           ? '<div class="sentence pop" id="cell">' + withGap(promptText) + '</div>'
           : '<div class="cell pop" id="cell">' +
               '<span class="cell-glyph' + promptCls + (promptText.length > 4 ? " long" : "") + '">' +
-              esc(promptText) + '</span>' +
-              (isJpForm(q.from) ? speakerBtn(p, q.answer, q.to).replace('class="say"', 'class="say big cell-say"') : '') +
-            '</div>') +
+              esc(promptText) + '</span></div>') +
         (hint ? '<div class="hint">' + esc(hint) + '</div>' : '') +
         (artOK(q.from) && picFor(q.answer)
           ? '<div class="prompt-photo">' + picImg(q.answer, "prompt-img") + '</div>' : '') +
@@ -2998,8 +2760,6 @@ function renderMatch(p) {
     '</div>';
 
   document.getElementById("quit").onclick = function () { finish(p); };
-  // Say the prompt as it appears, wherever hearing it is not the answer.
-  if (isJpForm(q.from)) sayIf(p, q.answer, q.to);
 
   if (q.typing) {
     const form = document.getElementById("typeForm"), input = document.getElementById("typeIn");
@@ -3029,15 +2789,7 @@ function answerMatch(p, chosen, btn) {
     if (btn) btn.classList.add("correct");
     cell.classList.remove("shake");
     cell.classList.add("good");
-    speech.can(q.answer) && speech.say(q.answer);
-    if (session.answeredWrongHere) {
-      // Getting there on the second try still counts for something, the way it
-      // does in Fruit Basket - half the power, and the quota moves.
-      bump(p, q.answer, true);
-      session.power = Math.min(100, session.power + session.cfg.refill / 2);
-      drawPower();
-      save();
-    }
+    if (session.answeredWrongHere) { bump(p, q.answer, true); save(); }
     else {
       credit(p, q.answer, true);
       if (powerGain(p)) { audio.star(); setTimeout(function () { finish(p); }, 420); return; }
@@ -3065,7 +2817,6 @@ function answerMatch(p, chosen, btn) {
     b.disabled = true;
     if (b.getAttribute("data-k") === q.answer) b.classList.add("correct");
   });
-  if (speech.can(q.answer)) speech.say(q.answer);   // hear the right answer
   const typeIn = document.getElementById("typeIn");
   if (typeIn) { typeIn.disabled = true; typeIn.value = showForm(p, q.answer, q.to); }
   setTimeout(function () { advanceMatch(p); }, 1150);
@@ -3166,13 +2917,11 @@ function flip(p, i) {
 
   if (a.kana === b.kana && a.kind !== b.kind) {
     audio.good();
-    if (speech.can(a.kana)) speech.say(a.kana);
     a.done = true; b.done = true;
     session.boardMatched += 1;
     credit(p, a.kana, true);
     const filled = powerGain(p);
     setTimeout(function () {
-      if (!session || session.ended || screen !== "pairs") return;
       session.up = []; session.locked = false;
       if (filled) { audio.star(); finish(p); return; }
       if (session.boardMatched >= session.boardPairs) {   // board cleared - deal a fresh five
@@ -3187,10 +2936,7 @@ function flip(p, i) {
     const tested = a.open ? b : a;      // the hidden card is the one being identified
     credit(p, tested.kana, false);
     powerLose(p);
-    setTimeout(function () {
-      if (!session || session.ended || screen !== "pairs") return;
-      session.up = []; session.locked = false; renderPairs(p);
-    }, 900);
+    setTimeout(function () { session.up = []; session.locked = false; renderPairs(p); }, 900);
   }
 }
 
@@ -3291,7 +3037,6 @@ function wireFruit(p) {
 
     if (it.kana === want) {
       audio.good();
-      if (speech.can(it.kana)) speech.say(it.kana);
       it.placed = true;
       session.boardMatched += 1;
       credit(p, it.kana, true);
@@ -3397,16 +3142,7 @@ function setupWord(p) {
       ? learned.indexOf(x.w) !== -1
       : x.w.split("").every(function (k) { return learned.indexOf(k) !== -1; });
   });
-  if (!usable.length) {
-    // Nothing is fully spellable yet - prefer the words needing the fewest
-    // characters the player has not met, rather than the first five in the list.
-    usable = LIST.slice().sort(function (a, b) {
-      function miss(x) {
-        return x.w.split("").filter(function (ch) { return learned.indexOf(ch) === -1; }).length;
-      }
-      return miss(a) - miss(b);
-    }).slice(0, 5);
-  }
+  if (!usable.length) usable = LIST.slice(0, 5);
 
   // Favour words that exercise this board's weak five.
   const weak = session.pool;
@@ -3502,14 +3238,12 @@ function placeLetter(p, ti, si) {
     const filled = powerGain(p);
     const solved = session.filled.indexOf(null) === -1;
     if (solved && !items[t.k] && items[entry.w]) credit(p, entry.w, true);
-    if (solved && speech.can(entry.w)) speech.say(entry.w);
     renderWord(p);
     if (filled) { audio.star(); setTimeout(function () { finish(p); }, 620); return; }
     if (solved) {
       audio.done();
       session.paused = true;                       // do not drain on the win screen
       setTimeout(function () {
-        if (!session || session.ended || screen !== "word") return;
         session.paused = false;
         session.wi += 1;
         if (session.wi >= session.words.length) {  // out of words - pick a fresh set
@@ -3525,16 +3259,10 @@ function placeLetter(p, ti, si) {
   }
 
   audio.bad();
-  // A right letter in the wrong slot is a placement slip, not ignorance of the
-  // letter - only score it wrong when the tile belongs nowhere in the word.
+  // Demote whichever of the two is a real item of this topic.
   const wrongItems = courseOf(p).items;
-  const belongs = session.wordLetters.indexOf(t.k) !== -1;
-  if (!belongs) {
-    if (wrongItems[t.k]) credit(p, t.k, false);
-    else if (wrongItems[entry.w]) credit(p, entry.w, false);
-  } else {
-    session.streak = 0;
-  }
+  if (wrongItems[want]) credit(p, want, false);
+  else if (wrongItems[entry.w]) credit(p, entry.w, false);
   powerLose(p);
   const tileEl = screenEl.querySelector('[data-t="' + ti + '"]');
   const slotEl = screenEl.querySelector('[data-s="' + si + '"]');
@@ -3657,7 +3385,6 @@ function renderFish(p) {
     // The whole level swims here, not just the working five, so a review
     // level with 15 kana actually shows all 15.
     session.target = nextKana(p, session.levelPool, session.target);
-    session.missedTarget = false;
     const fm = pickForms(p);
     session.fromForm = fm.from;
     session.toForm = fm.to;
@@ -3732,7 +3459,6 @@ function renderFish(p) {
 
     if (f.kana === session.target) {
       audio.good();
-      if (speech.can(f.kana)) speech.say(f.kana);
       f.el.classList.add("caught");
       credit(p, f.kana, true);
       setTimeout(function () { if (f.el.parentNode) f.el.parentNode.removeChild(f.el); }, 340);
@@ -3742,10 +3468,7 @@ function renderFish(p) {
     } else {
       audio.bad();
       f.el.classList.add("miss");
-      // A finger slip on a fish moving across the pond is not "I don't know
-      // this" - charge the power, but only mark the kana wrong once per target.
-      if (!session.missedTarget) { credit(p, session.target, false); session.missedTarget = true; }
-      else { session.streak = 0; }
+      credit(p, session.target, false);
       powerLose(p);
     }
     setTimeout(function () { if (f.el.parentNode) f.el.parentNode.removeChild(f.el); }, 340);
@@ -3794,20 +3517,11 @@ function renderResult(p) {
   const s = session || { hits:0, total:0, best:0, missed:{}, mode:"match" };
   const weak = Object.keys(s.missed || {});
   const headline = (s.score || 0) + " / " + (s.quota || 0);
-  // Filling the quota and passing the level are different things, and saying
-  // "level passed" when the level did not move is simply untrue.
-  const stillShort = (s.level && s.level.kana ? s.level.kana : []).filter(function (k) {
-    return box(p, k) < (s.level && s.level.kind === "learn" ? SOLID_BOX : SOLID_BOX + 1);
-  });
-  const praise = s.levelUp
-    ? "Level passed — on to the next one."
-    : s.won
-      ? (stillShort.length
-          ? "Quota filled. " + stillShort.length + " still need another good answer before the next level opens."
-          : "Quota filled — nicely done.")
-      : ((s.score || 0) >= (s.quota || 1) * 0.6
-          ? "Power ran out just short. One more go."
-          : "Power ran out. Quick right answers top it back up.");
+  const praise = s.won
+    ? "Level passed — power held out."
+    : ((s.score || 0) >= (s.quota || 1) * 0.6
+        ? "Power ran out just short. One more go."
+        : "Power ran out. Quick right answers top it back up.");
   const weakList = weak;
 
   screenEl.innerHTML =
@@ -3816,21 +3530,16 @@ function renderResult(p) {
         ? '<div class="unlock">🎉 ' + s.levelUp.label + ' unlocked — ' + s.levelUp.kana.join(" ") + '</div>'
         : '') +
       '<div class="sheet stack" style="align-items:flex-start">' +
-        (s.levelUp ? '<div style="font-size:25px;letter-spacing:9px" aria-hidden="true">⛩️🌸🎌</div>' : '') +
+        (s.won ? '<div style="font-size:25px;letter-spacing:9px" aria-hidden="true">⛩️🌸🎌</div>' : '') +
         '<span class="eyebrow">Round finished · ' + (s.level ? s.level.label : "") + '</span>' +
         '<div class="result-num' + (s.won ? "" : " short") + '">' + headline + '</div>' +
-        (s.won && !s.levelUp && stillShort.length
-          ? '<div class="chips">' + stillShort.slice(0, 8).map(function (k) {
-              return '<span class="chip"><span class="k">' + esc(k) + '</span></span>'; }).join("") + '</div>'
-          : '') +
         '<p>' + praise + (s.best > 2 ? " Best streak: " + s.best + "." : "") + '</p>' +
       '</div>' +
       (weak.length
         ? '<div class="sheet stack"><span class="eyebrow">Worth another look</span>' +
           '<div class="chips">' + weak.map(function (k) {
             return '<span class="chip weak"><span class="k">' + k + '</span>' +
-                   esc(showForm(p, k, courseOf(p).forms[courseOf(p).forms.length - 1])) +
-                   speakerBtn(p, k, null) + '</span>';
+                   showForm(p, k, courseOf(p).forms[courseOf(p).forms.length - 1]) + '</span>';
           }).join("") + '</div>' +
           '<p>These come round more often until they stick.</p></div>'
         : '') +
@@ -3866,7 +3575,7 @@ function renderGarden(p) {
         if (!k) { cells.push('<div class="gcell empty" aria-hidden="true"></div>'); continue; }
         const b = box(p, k);
         const cls = "gcell" + (b >= MASTERED ? " mastered" : b > 0 ? " seen" : "") + (locked ? " locked" : "");
-        cells.push('<button class="' + cls + '" data-k="' + k + '" data-say="' + esc(k) + '" title="' + esc(showForm(p, k, answerForm)) + '">' +
+        cells.push('<button class="' + cls + '" data-k="' + k + '" title="' + esc(showForm(p, k, answerForm)) + '">' +
           '<span class="fill" style="height:' + Math.round((b / MASTERED) * 100) + '%"></span>' +
           (b >= MASTERED ? '<span class="sprout" aria-hidden="true">🌱</span>' : '') +
           '<span class="glyph">' + showForm(p, k, c.forms[0]) + '</span></button>');
@@ -3887,8 +3596,7 @@ function renderGarden(p) {
           '<span class="fill" style="height:' + Math.round((b / MASTERED) * 100) + '%"></span>' +
           '<span class="vjp">' + showForm(p, k, c.forms[0]) +
             (b >= MASTERED ? ' 🌱' : '') + '</span>' +
-          '<span class="ven">' + esc(showForm(p, k, answerForm)) + '</span>' +
-          speakerBtn(p, k, null) + '</div>');
+          '<span class="ven">' + esc(showForm(p, k, answerForm)) + '</span></div>');
       });
     });
     return '<div class="sheet stack"><span class="eyebrow">' + title + '</span>' +
@@ -4006,8 +3714,6 @@ const photos = (function () {
     el.querySelector("img").src = picFor(c.jp) || "";
     el.querySelector(".wc-jp").textContent = c.jp;
     el.querySelector(".wc-en").textContent = c.en;
-    const sp = el.querySelector("#wcSay");
-    if (sp) { sp.setAttribute("data-say", c.jp); sp.hidden = !speech.can(c.jp); }
   }
 
   function showCard() {
@@ -4071,17 +3777,6 @@ document.addEventListener("pointerdown", function () { audio.prime(); }, { once:
 screenEl.addEventListener("click", function (e) {
   const hit = e.target && e.target.closest ? e.target.closest("#learnBtn") : null;
   if (hit) { audio.prime(); openStudyOverlay(currentProfile()); }
-});
-
-// Speakers appear in many places; one delegated listener covers them all,
-// including the ones inside the study overlay and the word card.
-document.addEventListener("click", function (e) {
-  const b = e.target && e.target.closest ? e.target.closest("[data-say]") : null;
-  if (!b) return;
-  e.stopPropagation();
-  e.preventDefault();
-  audio.prime();
-  speech.say(b.getAttribute("data-say"));
 });
 
 (function boot() {
