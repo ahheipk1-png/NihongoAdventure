@@ -468,6 +468,10 @@ p  { margin: 0; color: var(--ink-soft); line-height: 1.6; }
   color: var(--ink-faint);
 }
 
+.roomprompt {
+  font-size: clamp(26px, 6vw, 34px); font-weight: 800; text-align: center;
+  color: var(--ai); line-height: 1.2; padding: 14px 10px; overflow-wrap: anywhere;
+}
 .raritybar { display: flex; gap: 7px; flex-wrap: wrap; }
 .rchip {
   font-size: 10.5px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase;
@@ -1823,10 +1827,21 @@ function weightedPick(list) {
   return list[list.length - 1];
 }
 
-function drawCard(p) {
+function drawCard(p, opts) {
   const pool = cardPool(p);
   if (!pool.length) return null;
   const met = metKeys(p).filter(function (k) { return pool.indexOf(k) !== -1; });
+
+  // A draw that had to be earned should hand over something the child has not
+  // got. Twenty questions for a duplicate is the fastest way to make a
+  // collection feel pointless - measured at 53% before this.
+  if (opts && opts.preferNew) {
+    const unowned = pool.filter(function (k) { return !cards(p)[k]; });
+    const knownNew = unowned.filter(function (k) { return met.indexOf(k) !== -1; });
+    if (knownNew.length && Math.random() < 0.75) return weightedPick(knownNew);
+    if (unowned.length) return weightedPick(unowned);
+  }
+
   // Mostly reward what has been learned; now and then a wild card from further
   // ahead, which is the bit that makes a draw exciting.
   if (met.length && Math.random() < 0.8) return weightedPick(met);
@@ -2877,7 +2892,7 @@ function renderTopics(p) {
              '<span class="topic-name">' + (COURSE_ICONS[id] || "") + ' ' + c.title + '</span>' +
              '<span class="topic-sub">' + c.sub + '</span>' +
              '<span class="topic-meta">' + (open
-                ? (saved ? "Level " + Math.min(lvl, total) + " of " + total + " \u00b7 " + mastered + "/" + items : "Not started \u00b7 " + total + " levels")
+                ? (saved ? "Level " + Math.min(lvl, total) + " of " + total + " · " + mastered + "/" + items : "Not started · " + total + " levels")
                 : "Finish " + (prev ? prev.title : "the topic before") + " first") + '</span>' +
              '<span class="topic-bar"><i style="width:' + (open ? pct : 0) + '%"></i></span>' +
            '</button>';
@@ -4053,14 +4068,19 @@ function roomCanOpen(p) { return roomPool(p).length >= 4; }
 
 function nextRoomQ(p) {
   const pool = roomPool(p);
-  const key = pick(pool);
+  // Avoid asking the same thing twice in a row over a twenty-question stretch.
+  const fresh = pool.filter(function (k) { return k !== (room.q && room.q.key); });
+  const key = pick(fresh.length ? fresh : pool);
   const kind = cardAnswerKind(key);
   const right = cardFace(p, key).en;
   const wrongs = shuffle(pool.filter(function (k) {
     return k !== key && cardAnswerKind(k) === kind &&
            cardFace(p, k).en && cardFace(p, k).en !== right;
   })).slice(0, 3);
-  room.q = { key: key, options: shuffle([key].concat(wrongs)), answered: false };
+  // Half the questions run the other way - show the meaning, pick the card -
+  // so twenty in a row do not all look identical.
+  const reverse = wrongs.length === 3 && Math.random() < 0.45;
+  room.q = { key: key, options: shuffle([key].concat(wrongs)), answered: false, reverse: reverse };
 }
 
 function startRoom(p) {
@@ -4080,21 +4100,27 @@ function renderRoom(p) {
     screenEl.innerHTML =
       '<div class="stack">' +
         '<div class="sheet stack" style="align-items:center">' +
-          '<span class="eyebrow">' + room.need + ' questions answered</span>' +
-          '<h2 style="text-align:center">\U0001f0cf ' +
+          '<span class="eyebrow">' + room.need + ' questions answered' +
+            (room.prize.perfect ? ' · not one missed' : '') + '</span>' +
+          '<h2 style="text-align:center">🃏 ' +
             (room.prize.already ? "Another copy" : "A new card") + '</h2>' +
           '<div class="drawcard reveal ' + rar + '">' +
             (face.pic ? picImg(key, "drawcard-img") : '') +
             '<span class="drawcard-jp">' + esc(face.jp) + '</span>' +
             '<span class="drawcard-en">' + esc(face.en) + '</span>' +
-            '<span class="drawcard-val">' + rar + ' \u00b7 ' + val + '</span>' +
+            '<span class="drawcard-val">' + rar + ' · ' + val + '</span>' +
           '</div>' +
           (speech.can(key) ? speakerBtn(p, key, null) : '') +
-          '<p style="text-align:center">Collection now worth <strong>' + walletValue(p) + '</strong>.</p>' +
+          '<p style="text-align:center">' +
+            (room.prize.already
+              ? 'You had this one already, so it is worth <strong>+' + room.prize.bonus + ' stars</strong> instead. '
+              : '') +
+            (room.prize.perfect ? 'A clean run earned an extra draw and <strong>+5 stars</strong>. ' : '') +
+            'Collection now worth <strong>' + walletValue(p) + '</strong>.</p>' +
         '</div>' +
         '<div class="row">' +
           '<button class="btn btn-primary" id="roomAgain">Another round</button>' +
-          '<button class="btn" id="roomWallet">\U0001f0cf Wallet</button>' +
+          '<button class="btn" id="roomWallet">🃏 Wallet</button>' +
           '<button class="btn btn-ghost" id="roomOut">Done</button>' +
         '</div>' +
       '</div>';
@@ -4105,6 +4131,7 @@ function renderRoom(p) {
   }
 
   const q = room.q, face = cardFace(p, q.key);
+  const askReverse = !!q.reverse;
   const pips = [];
   for (let i = 0; i < room.need; i++) {
     pips.push('<span class="pip ' + (i < room.done ? "hit" : i === room.done ? "now" : "") + '"></span>');
@@ -4113,25 +4140,32 @@ function renderRoom(p) {
   screenEl.innerHTML =
     '<div class="stack">' +
       '<div class="row">' +
-        '<span class="board-tag">\U0001f0cf Card Room <b>' + room.done + ' / ' + room.need + '</b></span>' +
+        '<span class="board-tag">🃏 Card Room <b>' + room.done + ' / ' + room.need + '</b></span>' +
       '</div>' +
       '<div class="strip"><div class="pips">' + pips.join("") + '</div></div>' +
       '<div class="sheet stack" style="align-items:center;gap:16px">' +
         '<span class="eyebrow">' +
-          (cardAnswerKind(q.key) === "sound" ? "What sound is this?" : "What does this mean?") + '</span>' +
-        '<div class="drawcard ' + cardRarity(cardValue(q.key)) + '">' +
-          (face.pic ? picImg(q.key, "drawcard-img") : '') +
-          '<span class="drawcard-jp">' + esc(face.jp) + '</span>' +
-        '</div>' +
-        (speech.can(q.key) && cardAnswerKind(q.key) !== "sound" ? speakerBtn(p, q.key, null) : '') +
+          (askReverse ? "Which card is this?"
+           : cardAnswerKind(q.key) === "sound" ? "What sound is this?" : "What does this mean?") + '</span>' +
+        (askReverse
+          ? '<div class="roomprompt">' + esc(face.en) + '</div>'
+          : '<div class="drawcard ' + cardRarity(cardValue(q.key)) + '">' +
+              (face.pic ? picImg(q.key, "drawcard-img") : '') +
+              '<span class="drawcard-jp">' + esc(face.jp) + '</span>' +
+            '</div>') +
+        (!askReverse && speech.can(q.key) && cardAnswerKind(q.key) !== "sound"
+          ? speakerBtn(p, q.key, null) : '') +
       '</div>' +
       '<div class="answers" data-n="4">' +
         q.options.map(function (k) {
-          return '<button class="ans en" data-r="' + esc(k) + '">' + esc(cardFace(p, k).en) + '</button>';
+          const f = cardFace(p, k);
+          return '<button class="ans ' + (askReverse ? "kana" : "en") + '" data-r="' + esc(k) + '">' +
+                 (askReverse && f.pic ? picImg(k, "ans-img") : '') +
+                 '<span class="ans-label">' + esc(askReverse ? f.jp : f.en) + '</span></button>';
         }).join("") +
       '</div>' +
       '<p style="font-size:12.5px;text-align:center">Answer ' + room.need +
-        ' to win a card. A wrong one does not count against you \u2014 it just does not count.</p>' +
+        ' to win a card. A wrong one does not count against you — it just does not count.</p>' +
       '<div class="row"><button class="btn btn-ghost btn-sm" id="roomQuit">Leave the room</button></div>' +
     '</div>';
 
@@ -4147,13 +4181,20 @@ function renderRoom(p) {
         room.done += 1;
         save();
         if (room.done >= room.need) {
-          // the long price buys better odds: two draws, keep the better card
-          const a = drawCard(p), bb = drawCard(p);
-          const key = (!bb || cardValue(a) >= cardValue(bb)) ? a : bb;
+          // The long price buys better odds, and a clean run buys better ones
+          // still: draw two, or three if nothing was missed, and keep the best.
+          const perfect = room.missed === 0;
+          const tries = [drawCard(p, { preferNew: true }), drawCard(p, { preferNew: true })];
+          if (perfect) tries.push(drawCard(p, { preferNew: true }));
+          const key = tries.filter(Boolean).sort(function (x, y) {
+            return cardValue(y) - cardValue(x);
+          })[0];
           const already = !!cards(p)[key];
           cards(p)[key] = (cards(p)[key] || 0) + 1;
-          p.stars += 5;
-          room.prize = { key: key, already: already };
+          // A duplicate is never a dead end - it is worth stars instead.
+          const bonus = already ? Math.max(3, Math.round(cardValue(key) / 4)) : 5;
+          p.stars += bonus + (perfect ? 5 : 0);
+          room.prize = { key: key, already: already, perfect: perfect, bonus: bonus };
           save();
           audio.star();
         } else {
