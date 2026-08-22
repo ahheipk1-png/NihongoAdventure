@@ -1938,12 +1938,26 @@ function showForm(p, key, form) {
   return (it && it[form] !== undefined && it[form] !== null) ? it[form] : key;
 }
 
+/* A question only exists where the prompt and the answer differ. An item whose
+   forms collapse to one string - a kanji on a board that only speaks kana and
+   romaji, say - has nothing to ask, so it does not belong on that board. */
+function tellsApart(p, key, forms) {
+  for (let i = 0; i < forms.length; i++) {
+    for (let j = i + 1; j < forms.length; j++) {
+      if (showForm(p, key, forms[i]) === showForm(p, key, forms[j])) return false;
+    }
+  }
+  return true;
+}
+
 // Which form is the prompt and which is the answer, for one board.
 function pickForms(p) {
   const lv = session && session.level;
   if (lv && lv.kind === "kanji") {
-    const other = Math.random() < 0.5 ? "kana" : "en";
-    return Math.random() < 0.5 ? { from: "jp", to: other } : { from: other, to: "jp" };
+    // A kanji is answered with the way it is read, in either direction. Never
+    // with another kanji, and never with its meaning - the meaning is on the
+    // study sheet and on the card; the reading is the thing being drilled.
+    return Math.random() < 0.5 ? { from: "jp", to: "kana" } : { from: "kana", to: "jp" };
   }
   const lvForms = lv && lv.forms;
   const forms = lvForms || courseOf(p).forms;
@@ -2137,19 +2151,18 @@ function ladderFor(p) {
     }
   }
 
-  // Slot a kanji level in as every fifth level, and let later review levels
-  // carry the last couple of groups so a kanji gets more than one exposure.
+  /* Slot a kanji level in as every fifth level. Each one revisits the group
+     before it, so a kanji gets more than one exposure without ever landing on
+     a review board - a review board speaks the course's own two forms, and a
+     kanji has nothing to say in kana-and-romaji. */
   const out = [];
   const seenGroups = [];
   let g = kanjiOffset(p.course);
   base.forEach(function (step) {
-    if (step.kind === "review" && seenGroups.length) {
-      step = { kind: "review", rows: step.rows, carry: seenGroups.slice(-2) };
-    }
     out.push(step);
     if (out.length % 5 === 4) {
       const grp = g % KANJI_GROUPS.length;
-      out.push({ kind: "kanji", rows: [], group: grp });
+      out.push({ kind: "kanji", rows: [], group: grp, revisit: seenGroups.slice(-1) });
       seenGroups.push(grp);
       g += 1;
     }
@@ -2165,15 +2178,20 @@ function levelInfo(p, at) {
   const want = at === undefined ? (prog(p).level || 0) : at;
   const idx = Math.max(0, Math.min(want, ladder.length - 1));
   const step = ladder[idx];
-  const kana = [];
+  let kana = [];
   if (step.kind === "kanji") {
     KANJI_KEYS[step.group].forEach(function (k) { kana.push(k); });
-  } else {
-    step.rows.forEach(function (r) { rows[r].keys.forEach(function (k) { kana.push(k); }); });
-    // review levels fold in the kanji already met, so they are revisited
-    (step.carry || []).forEach(function (grp) {
+    // the group before this one comes round again
+    (step.revisit || []).forEach(function (grp) {
       KANJI_KEYS[grp].forEach(function (k) { if (kana.indexOf(k) === -1) kana.push(k); });
     });
+  } else {
+    step.rows.forEach(function (r) { rows[r].keys.forEach(function (k) { kana.push(k); }); });
+    // Insurance, not a workaround: nothing may sit on a board that the board's
+    // own forms cannot ask a real question about.
+    const forms = courseOf(p).forms;
+    const asks = kana.filter(function (k) { return tellsApart(p, k, forms); });
+    if (asks.length) kana = asks;
   }
   return {
     index: idx,
