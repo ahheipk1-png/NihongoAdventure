@@ -2529,7 +2529,6 @@ function refreshPool(p) {
 
 function go(name) {
   closeStudyOverlay();
-  if (name !== "room" && name !== "wallet") room = null;
   if (name !== "fish") stopLoops();
   screen = name;
   render();
@@ -2554,7 +2553,6 @@ function render() {
   else if (screen === "result")  renderResult(p);
   else if (screen === "draw")    renderDraw(p);
   else if (screen === "wallet")  renderWallet(p);
-  else if (screen === "room")    renderRoom(p);
   else                           renderHome();
 }
 
@@ -3093,14 +3091,11 @@ function renderMenu(p) {
       '<div class="row">' +
         '<button class="btn" id="toTopics">📚 Topics</button>' +
         '<button class="btn" id="toGarden">🌱 Garden</button>' +
-        (roomCanOpen(p) ? '<button class="btn" id="toRoom">🃏 Card Room</button>' : '') +
         '<button class="btn btn-ghost btn-sm" id="editMe">Settings</button>' +
       '</div>' +
     '</div>';
 
   document.getElementById("toTopics").onclick = function () { go("topics"); };
-  const rm = document.getElementById("toRoom");
-  if (rm) rm.onclick = function () { audio.prime(); startRoom(p); };
   document.getElementById("playLevel").onclick = function () { startLevel(p); };
   document.getElementById("studyBtn").onclick = function () { go("study"); };
   document.getElementById("toGarden").onclick = function () { go("garden"); };
@@ -4036,143 +4031,6 @@ function studiedCards(p) {
   });
 }
 
-/* ---------- the Card Room ----------
-   The draw after a level is the cheap way to a card: one question. The Card
-   Room is open whenever the player likes, but it charges twice a level's quota
-   in questions - so more cards are always available, and always earned. The
-   longer price buys better odds, otherwise nobody would ever choose it. */
-let room = null;
-
-function roomPool(p) {
-  const answerable = function (k) { return !!cardFace(p, k).en; };
-  const met = metKeys(p).filter(answerable);
-  return met.length >= 4 ? met : cardPool(p).filter(answerable);
-}
-
-function roomCanOpen(p) { return roomPool(p).length >= 4; }
-
-function nextRoomQ(p) {
-  const pool = roomPool(p);
-  const key = pick(pool);
-  const kind = cardAnswerKind(key);
-  const right = cardFace(p, key).en;
-  const wrongs = shuffle(pool.filter(function (k) {
-    return k !== key && cardAnswerKind(k) === kind &&
-           cardFace(p, k).en && cardFace(p, k).en !== right;
-  })).slice(0, 3);
-  room.q = { key: key, options: shuffle([key].concat(wrongs)), answered: false };
-}
-
-function startRoom(p) {
-  stopLoops();
-  room = { need: tierOf(p).power.quota * 2, done: 0, missed: 0, q: null, prize: null };
-  nextRoomQ(p);
-  go("room");
-}
-
-function renderRoom(p) {
-  if (!room) { startRoom(p); return; }
-
-  // the prize screen
-  if (room.prize) {
-    const key = room.prize.key, face = cardFace(p, key);
-    const val = cardValue(key), rar = cardRarity(val);
-    screenEl.innerHTML =
-      '<div class="stack">' +
-        '<div class="sheet stack" style="align-items:center">' +
-          '<span class="eyebrow">' + room.need + ' questions answered</span>' +
-          '<h2 style="text-align:center">\U0001f0cf ' +
-            (room.prize.already ? "Another copy" : "A new card") + '</h2>' +
-          '<div class="drawcard reveal ' + rar + '">' +
-            (face.pic ? picImg(key, "drawcard-img") : '') +
-            '<span class="drawcard-jp">' + esc(face.jp) + '</span>' +
-            '<span class="drawcard-en">' + esc(face.en) + '</span>' +
-            '<span class="drawcard-val">' + rar + ' \u00b7 ' + val + '</span>' +
-          '</div>' +
-          (speech.can(key) ? speakerBtn(p, key, null) : '') +
-          '<p style="text-align:center">Collection now worth <strong>' + walletValue(p) + '</strong>.</p>' +
-        '</div>' +
-        '<div class="row">' +
-          '<button class="btn btn-primary" id="roomAgain">Another round</button>' +
-          '<button class="btn" id="roomWallet">\U0001f0cf Wallet</button>' +
-          '<button class="btn btn-ghost" id="roomOut">Done</button>' +
-        '</div>' +
-      '</div>';
-    document.getElementById("roomAgain").onclick = function () { startRoom(p); };
-    document.getElementById("roomWallet").onclick = function () { room = null; go("wallet"); };
-    document.getElementById("roomOut").onclick = function () { room = null; go("menu"); };
-    return;
-  }
-
-  const q = room.q, face = cardFace(p, q.key);
-  const pips = [];
-  for (let i = 0; i < room.need; i++) {
-    pips.push('<span class="pip ' + (i < room.done ? "hit" : i === room.done ? "now" : "") + '"></span>');
-  }
-
-  screenEl.innerHTML =
-    '<div class="stack">' +
-      '<div class="row">' +
-        '<span class="board-tag">\U0001f0cf Card Room <b>' + room.done + ' / ' + room.need + '</b></span>' +
-      '</div>' +
-      '<div class="strip"><div class="pips">' + pips.join("") + '</div></div>' +
-      '<div class="sheet stack" style="align-items:center;gap:16px">' +
-        '<span class="eyebrow">' +
-          (cardAnswerKind(q.key) === "sound" ? "What sound is this?" : "What does this mean?") + '</span>' +
-        '<div class="drawcard ' + cardRarity(cardValue(q.key)) + '">' +
-          (face.pic ? picImg(q.key, "drawcard-img") : '') +
-          '<span class="drawcard-jp">' + esc(face.jp) + '</span>' +
-        '</div>' +
-        (speech.can(q.key) && cardAnswerKind(q.key) !== "sound" ? speakerBtn(p, q.key, null) : '') +
-      '</div>' +
-      '<div class="answers" data-n="4">' +
-        q.options.map(function (k) {
-          return '<button class="ans en" data-r="' + esc(k) + '">' + esc(cardFace(p, k).en) + '</button>';
-        }).join("") +
-      '</div>' +
-      '<p style="font-size:12.5px;text-align:center">Answer ' + room.need +
-        ' to win a card. A wrong one does not count against you \u2014 it just does not count.</p>' +
-      '<div class="row"><button class="btn btn-ghost btn-sm" id="roomQuit">Leave the room</button></div>' +
-    '</div>';
-
-  screenEl.querySelectorAll("[data-r]").forEach(function (b) {
-    b.onclick = function () {
-      if (q.answered) return;
-      if (b.getAttribute("data-r") === q.key) {
-        q.answered = true;
-        audio.good();
-        if (speech.can(q.key)) speech.say(q.key);
-        bump(p, q.key, true);          // not credit(): that belongs to a level's session
-        p.stars += 1;
-        room.done += 1;
-        save();
-        if (room.done >= room.need) {
-          // the long price buys better odds: two draws, keep the better card
-          const a = drawCard(p), bb = drawCard(p);
-          const key = (!bb || cardValue(a) >= cardValue(bb)) ? a : bb;
-          const already = !!cards(p)[key];
-          cards(p)[key] = (cards(p)[key] || 0) + 1;
-          p.stars += 5;
-          room.prize = { key: key, already: already };
-          save();
-          audio.star();
-        } else {
-          nextRoomQ(p);
-        }
-        setTimeout(function () { if (screen === "room") renderRoom(p); }, 380);
-      } else {
-        audio.bad();
-        room.missed += 1;
-        bump(p, q.key, false);
-        b.classList.add("wrong", "dim");
-        b.disabled = true;
-        save();
-      }
-    };
-  });
-  document.getElementById("roomQuit").onclick = function () { room = null; go("menu"); };
-}
-
 function renderDraw(p) {
   const askable = studiedCards(p);
   const gate = session && session.drawGate;
@@ -4301,13 +4159,8 @@ function renderWallet(p) {
       (owned.length
         ? '<div class="wgrid">' + grid + '</div>'
         : '<div class="note">No cards yet. Pass a level and the lucky draw opens.</div>') +
-      '<div class="row">' +
-        (roomCanOpen(p) ? '<button class="btn btn-primary" id="wRoom">🃏 Card Room — win more</button>' : '') +
-        '<button class="btn btn-ghost" id="wBack">Back</button>' +
-      '</div>' +
+      '<div class="row"><button class="btn btn-ghost" id="wBack">Back</button></div>' +
     '</div>';
-  const wr = document.getElementById("wRoom");
-  if (wr) wr.onclick = function () { audio.prime(); startRoom(p); };
   document.getElementById("wBack").onclick = function () { go("menu"); };
 }
 
