@@ -395,6 +395,7 @@ p  { margin: 0; color: var(--ink-soft); line-height: 1.6; }
   color: var(--ink-soft);
 }
 .board-tag b { color: var(--ink); font-family: var(--font-kana); font-size: 15px; }
+.board-tag.lives b { font-family: var(--font-ui); letter-spacing: 3px; color: var(--shu); }
 .unlock {
   border: 2px solid var(--yamabuki); background: var(--yamabuki-wash); color: var(--yamabuki);
   border-radius: var(--r-md); padding: 14px 16px; font-weight: 800;
@@ -541,9 +542,9 @@ p  { margin: 0; color: var(--ink-soft); line-height: 1.6; }
 }
 .ans.correct::before { content: "✓"; }
 .ans.wrong::before   { content: "✗"; }
-.pip.miss { background: transparent; box-shadow: inset 0 0 0 2px var(--shu); }
 .ans.dim     { opacity: .38; }
 .ans[disabled]{ cursor: default; }
+.ans.nope { animation: shake .4s ease; }
 
 .typebox { display: flex; gap: 8px; }
 .typebox input {
@@ -1890,6 +1891,15 @@ function greenStars(p) {
   return n;
 }
 
+/* Green stars pay. Level 1 pays 1000, level 2 pays 2000, counted inside its own
+   topic - and only the first time that level is cleared with nothing missed, so
+   replaying an easy level cannot be turned into an income. */
+const STAR_PAY = 1000;
+function starPay(idx) { return STAR_PAY * ((idx || 0) + 1); }
+function money(p) { return (p && typeof p.money === "number" && isFinite(p.money)) ? p.money : 0; }
+function addMoney(p, n) { p.money = money(p) + n; return p.money; }
+function cash(n) { return "$" + String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ","); }
+
 function unitsOf(p) {
   const c = courseOf(p);
   return tierOf(p).dakuten ? c.units.concat(c.extraUnits) : c.units.slice();
@@ -2038,7 +2048,7 @@ function newProfile(name, face, tier) {
     id: "p" + Math.floor(Math.random() * 1e9).toString(36) + state.profiles.length,
     name: name, face: face, tier: tier,
     course: "hiragana", progress: { hiragana: { level: 0, boxes: {}, perfect: {} } },
-    typing: false, cards: {}
+    typing: false, cards: {}, money: 0
   };
 }
 
@@ -2621,6 +2631,8 @@ function renderTopbar() {
               '<span class="who-name">' + esc(p.name) + '</span></button>' +
             '<span class="stars green" title="Levels cleared without a single mistake">' +
               '★ ' + greenStars(p) + '</span>' +
+            '<span class="stars" title="Money from green stars — 1000 for level 1, 2000 for level 2, and so on">' +
+              cash(money(p)) + '</span>' +
             '<button class="purse" id="toWallet" title="Your card collection">' +
               '🃏 <span>' + walletValue(p) + '</span></button>';
   }
@@ -3257,6 +3269,10 @@ function finish(p) {
     session.perfect = !!session.won && session.wrongs === 0;
     session.perfectNew = session.perfect && !perfectSet(p)[idx];
     if (session.perfect) perfectSet(p)[idx] = true;
+    // The star pays once. A replay can still earn a first star and its money;
+    // it can never be paid twice, because by then the star is on the board.
+    session.starPay = session.perfectNew ? starPay(idx) : 0;
+    if (session.starPay) addMoney(p, session.starPay);
     // A replay is for the star, not the ladder - it cannot advance anything.
     session.levelUp = session.replay === undefined ? advanceLevel(p) : null;
   }
@@ -4149,6 +4165,15 @@ function studiedCards(p) {
    in questions - so more cards are always available, and always earned. The
    longer price buys better odds, otherwise nobody would ever choose it. */
 let room = null;
+let roomSeq = 0;          // identifies a run, so a stale timer cannot touch a new one
+
+/* The Card Room charges for a card, so it is allowed to say no. Two wrong taps
+   lose the question - the answer is shown, and the run moves on - and three
+   lost questions send the whole visit back to the start with the same cards in
+   a new order. The lucky draw is a gift a level already earned: it keeps its
+   unlimited retries and never strikes anyone out. */
+const ROOM_TRIES   = 2;   // wrong taps allowed on one question
+const ROOM_STRIKES = 3;   // questions allowed to be lost in one run
 
 // Anything that can carry a question: the collection plus everything the
 // levels have introduced. This is the pool the four options are drawn from.
@@ -4240,7 +4265,8 @@ function nextRoomQ(p) {
   // Half the questions run the other way - show the meaning, pick the card -
   // so twenty in a row do not all look identical.
   const reverse = wrongs.length === 3 && Math.random() < 0.45;
-  room.q = { key: key, options: shuffle([key].concat(wrongs)), answered: false, reverse: reverse };
+  room.q = { key: key, options: shuffle([key].concat(wrongs)), answered: false,
+             reverse: reverse, wrongs: 0, penalised: false };
 }
 
 // Both rewards are the same run of questions at different prices: five to
@@ -4254,8 +4280,9 @@ function startQuiz(p, kind) {
   // starts being a chore. With too little to ask anything fair the run is
   // empty and the card is simply given, which is what happens on level one.
   const keys = pool.length >= QUIZ_FLOOR ? quizKeys(p, QUIZ_LEN[kind] || 5) : [];
-  room = { kind: kind, need: keys.length, keys: keys, idx: 0,
-           done: 0, missed: 0, q: null, prize: null };
+  room = { id: ++roomSeq, kind: kind, need: keys.length, keys: keys, idx: 0,
+           done: 0, missed: 0, strikes: 0, marks: [], restarts: 0,
+           over: false, q: null, prize: null };
   if (!room.need) { awardCard(p); }      // nothing to ask yet - this is level 1
   else { nextRoomQ(p); }
   go("room");
@@ -4263,9 +4290,38 @@ function startQuiz(p, kind) {
 
 function startRoom(p) { startQuiz(p, "room"); }
 
+/* One place decides what happens when a question resolves, right or wrong. The
+   run ends when the cards run out rather than when `done` reaches `need`: a
+   question lost to two wrong taps leaves `done` permanently short, and the card
+   is still earned at the end of the row. */
+function roomAdvance(p) {
+  if (room.idx >= room.keys.length) { awardCard(p); return; }
+  nextRoomQ(p);
+}
+
+/* Three questions lost: the same cards come round again in a new order, and the
+   options reshuffle with them. `missed` and `restarts` deliberately survive, so
+   the extra draw for a clean run cannot be won by starting over. */
+function roomRestart(p) {
+  room.id = ++roomSeq;
+  room.keys = shuffle(room.keys);
+  room.idx = 0; room.done = 0; room.strikes = 0;
+  room.marks = []; room.over = false; room.q = null;
+  room.restarts += 1;
+  roomAdvance(p);
+  render();
+}
+
+// A heart for every life left, a dot for every one spent - shape, not colour.
+function livesDots(r) {
+  let out = "";
+  for (let i = 0; i < ROOM_STRIKES; i++) out += (i < ROOM_STRIKES - r.strikes) ? "♥" : "·";
+  return out;
+}
+
 function awardCard(p) {
   const paid = room.kind === "room";
-  const perfect = room.missed === 0 && room.need > 0;
+  const perfect = room.missed === 0 && !room.restarts && room.need > 0;
   const tries = [drawCard(p, { preferNew: paid }), drawCard(p, { preferNew: paid })];
   if (paid && perfect) tries.push(drawCard(p, { preferNew: true }));
   const key = tries.filter(Boolean).sort(function (x, y) {
@@ -4285,6 +4341,30 @@ function awardCard(p) {
 function renderRoom(p) {
   if (!room) { startRoom(p); return; }
 
+  /* Struck out. Nothing is taken away - the run simply begins again - but it is
+     said out loud, with a button, rather than happening under the child's
+     hands. This sits before the prize screen because a blown run can never hold
+     a prize, and putting it first makes that true by construction. */
+  if (room.over) {
+    screenEl.innerHTML =
+      '<div class="stack">' +
+        '<div class="sheet stack">' +
+          '<span class="eyebrow">Three questions lost</span>' +
+          '<h2>The room starts over</h2>' +
+          '<p>The same ' + room.need + ' cards come round again, shuffled into a new order. ' +
+            'Nothing in your wallet is lost — but a clean run is out of reach this visit, ' +
+            'so there is no extra draw at the end of this one.</p>' +
+        '</div>' +
+        '<div class="row">' +
+          '<button class="btn btn-primary" id="roomOver">Start the room over</button>' +
+          '<button class="btn btn-ghost" id="roomBail">Leave the room</button>' +
+        '</div>' +
+      '</div>';
+    document.getElementById("roomOver").onclick = function () { audio.prime(); roomRestart(p); };
+    document.getElementById("roomBail").onclick = function () { room = null; go("menu"); };
+    return;
+  }
+
   // the prize screen
   if (room.prize) {
     const key = room.prize.key, face = cardFace(p, key);
@@ -4293,7 +4373,11 @@ function renderRoom(p) {
       '<div class="stack">' +
         '<div class="sheet stack" style="align-items:center">' +
           '<span class="eyebrow">' +
-            (room.need ? room.need + ' questions answered' : 'Level passed') +
+            (room.need
+              ? (room.done >= room.need
+                  ? room.need + ' questions answered'
+                  : room.done + ' of ' + room.need + ' answered')
+              : 'Level passed') +
             (room.prize.perfect ? ' · not one missed' : '') + '</span>' +
           '<h2 style="text-align:center">🃏 ' +
             (room.prize.already ? "Another copy" : "A new card") + '</h2>' +
@@ -4330,7 +4414,10 @@ function renderRoom(p) {
   const askReverse = !!q.reverse;
   const pips = [];
   for (let i = 0; i < room.need; i++) {
-    pips.push('<span class="pip ' + (i < room.done ? "hit" : i === room.done ? "now" : "") + '"></span>');
+    const mark = room.marks[i];
+    pips.push('<span class="pip ' +
+      (mark === "hit" ? "hit" : mark === "miss" ? "miss" : i === room.marks.length ? "now" : "") +
+      '"></span>');
   }
 
   screenEl.innerHTML =
@@ -4338,6 +4425,10 @@ function renderRoom(p) {
       '<div class="row">' +
         '<span class="board-tag">' + (room.kind === "room" ? "🃏 Card Room" : "🎁 Lucky draw") +
           ' <b>' + room.done + ' / ' + room.need + '</b></span>' +
+        (room.kind === "room"
+          ? '<span class="board-tag lives" title="Three lost questions and the room starts over">' +
+            'Lives <b>' + livesDots(room) + '</b></span>'
+          : '') +
       '</div>' +
       '<div class="strip"><div class="pips">' + pips.join("") + '</div></div>' +
       '<div class="sheet stack" style="align-items:center;gap:16px">' +
@@ -4361,36 +4452,80 @@ function renderRoom(p) {
                  '<span class="ans-label">' + esc(askReverse ? f.jp : f.en) + '</span></button>';
         }).join("") +
       '</div>' +
-      '<p style="font-size:12.5px;text-align:center">Answer ' + room.need +
-        ' to win a card. A wrong one does not count against you — it just does not count.</p>' +
+      '<p id="roomHint" style="font-size:12.5px;text-align:center">' +
+        (room.kind === "room"
+          ? 'Answer all ' + room.need + ' to win a card. Two wrong taps and the question is ' +
+            'lost — lose three and the room starts over.'
+          : 'Answer ' + room.need + ' to win a card. A wrong one does not count against you — ' +
+            'it just does not count.') + '</p>' +
       '<div class="row"><button class="btn btn-ghost btn-sm" id="roomQuit">' +
         (room.kind === "room" ? "Leave the room" : "Skip the draw") + '</button></div>' +
     '</div>';
 
+  const runId = room.id;
+  const strict = room.kind === "room";
+
   screenEl.querySelectorAll("[data-r]").forEach(function (b) {
     b.onclick = function () {
       if (q.answered) return;
+
       if (b.getAttribute("data-r") === q.key) {
         q.answered = true;
         audio.good();
         if (speech.can(q.key)) speech.say(q.key);
         bump(p, q.key, true);          // not credit(): that belongs to a level's session
+        b.classList.add("correct");
         room.done += 1;
+        room.marks.push("hit");
         save();
-        if (room.done >= room.need) {
-          awardCard(p);
-        } else {
-          nextRoomQ(p);
-        }
-        setTimeout(function () { if (screen === "room") renderRoom(p); }, 380);
-      } else {
-        audio.bad();
-        room.missed += 1;
-        bump(p, q.key, false);
-        b.classList.add("wrong", "dim");
-        b.disabled = true;
-        save();
+        roomAdvance(p);
+        setTimeout(function () {
+          if (screen === "room" && room && room.id === runId) renderRoom(p);
+        }, 380);
+        return;
       }
+
+      audio.bad();
+      room.missed += 1;
+      q.wrongs += 1;
+      // The house rule everywhere else: an item is demoted once per question,
+      // however many taps it takes to get there.
+      if (!q.penalised) { bump(p, q.key, false); q.penalised = true; }
+      b.classList.add("wrong", "dim", "nope");
+      b.disabled = true;
+      setTimeout(function () { b.classList.remove("nope"); }, 400);
+      save();
+
+      if (!strict || q.wrongs < ROOM_TRIES) {
+        if (strict) {
+          const hint = document.getElementById("roomHint");
+          if (hint) hint.textContent = "One more try on this card — the next wrong tap loses it.";
+          announce("Not that one. One more try on this card.");
+        }
+        return;
+      }
+
+      // Out of tries. Show the right answer the way the match game does, take
+      // the strike, and move on - the question does not come round again.
+      q.answered = true;
+      room.marks.push("miss");
+      room.strikes += 1;
+      screenEl.querySelectorAll(".ans").forEach(function (x) {
+        x.disabled = true;
+        if (x.getAttribute("data-r") === q.key) x.classList.add("correct");
+      });
+      const quitBtn = document.getElementById("roomQuit");
+      if (quitBtn) quitBtn.disabled = true;      // no leaving mid-reveal
+      if (speech.can(q.key)) speech.say(q.key);
+      announce("The answer was " + cardFace(p, q.key).en + ". " +
+               (ROOM_STRIKES - room.strikes) + " lives left.");
+      save();
+      setTimeout(function () {
+        if (!(screen === "room" && room && room.id === runId)) return;
+        if (room.strikes >= ROOM_STRIKES) room.over = true;
+        else roomAdvance(p);
+        renderRoom(p);
+      }, 1150);
     };
   });
   document.getElementById("roomQuit").onclick = function () { room = null; go("menu"); };
@@ -4419,6 +4554,9 @@ function renderWallet(p) {
         '<h2>' + walletValue(p) + ' in cards</h2>' +
         '<p>' + totalCards + ' card' + (totalCards === 1 ? '' : 's') + ', ' + owned.length +
           ' different. Cards are worth more when the word is harder. Tap one to hear it.</p>' +
+        '<p><strong>' + cash(money(p)) + '</strong> in the money jar — ' +
+          greenStars(p) + ' green star' + (greenStars(p) === 1 ? '' : 's') +
+          ', each paying 1000 times its level number.</p>' +
         '<div class="raritybar">' +
           ["legendary", "epic", "rare", "common"].map(function (r) {
             return '<span class="rchip ' + r + '">' + r + ' ' + byRarity[r] + '</span>';
@@ -4491,7 +4629,11 @@ function renderResult(p) {
             '<span class="greencard-star" aria-hidden="true">★</span>' +
             '<span><strong>' + (s.perfectNew ? "Green star earned" : "Flawless again") +
               '</strong> — ' + (s.level ? s.level.label : "this level") +
-              ' cleared without a single mistake.</span>' +
+              ' cleared without a single mistake.' +
+              (s.starPay
+                ? ' <strong>' + cash(s.starPay) + '</strong> for the money jar.'
+                : ' This star was already paid, so no money this time.') +
+            '</span>' +
           '</div>'
         : '') +
       (weak.length
@@ -4797,6 +4939,18 @@ document.addEventListener("click", function (e) {
     Object.keys(p.progress).forEach(function (cid) {
       if (!p.progress[cid].perfect) p.progress[cid].perfect = {};
     });
+    if (typeof p.money !== "number" || !isFinite(p.money)) {
+      // First boot after money existed: pay for the stars already on the board,
+      // so a week of flawless rounds is not suddenly worth nothing. Runs once.
+      let owed = 0;
+      Object.keys(p.progress).forEach(function (cid) {
+        const per = p.progress[cid].perfect || {};
+        Object.keys(per).forEach(function (k) {
+          if (per[k]) owed += starPay(parseInt(k, 10) || 0);
+        });
+      });
+      p.money = owed;
+    }
   });
   state.activeId = null;
   render();
