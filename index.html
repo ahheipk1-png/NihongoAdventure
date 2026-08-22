@@ -367,6 +367,12 @@ p  { margin: 0; color: var(--ink-soft); line-height: 1.6; }
 .playcard.m-fruit { border-left-color: var(--fruit-1); }
 .playcard.m-pairs { border-left-color: var(--wakakusa); }
 .playcard.m-word  { border-left-color: var(--yamabuki); }
+.donecard {
+  display: flex; flex-direction: column; gap: 5px;
+  background: var(--wakakusa-wash); border: 2px solid var(--wakakusa);
+  border-radius: var(--r-lg); padding: 18px 22px;
+}
+.donecard .playcard-title { color: var(--wakakusa); }
 .playcard-verb {
   font-size: 10.5px; font-weight: 800; letter-spacing: .13em;
   text-transform: uppercase; color: var(--ink-faint);
@@ -1799,9 +1805,10 @@ function boxRec(p, k) {
 }
 function box(p, k) { return boxRec(p, k).b; }
 
-// How long an item rests before it is worth asking again. Without this a
-// "mastered" item is just one answered twice in the same minute.
-const DUE_AFTER = [0, 20 * 60e3, 24 * 3600e3, 3 * 24 * 3600e3, 7 * 24 * 3600e3];
+// How long an item rests before it is worth asking again. Mastery is the thing
+// that must not be fakeable in one sitting - progress through the levels still
+// has to be possible today, or a child wins all afternoon and never advances.
+const DUE_AFTER = [0, 10 * 60e3, 60 * 60e3, 24 * 3600e3, 7 * 24 * 3600e3];
 function dueAt(rec) { return (rec.t || 0) + (DUE_AFTER[rec.b] || 0); }
 function isDue(p, k, now) { return (now || Date.now()) >= dueAt(boxRec(p, k)); }
 
@@ -1810,9 +1817,10 @@ function bump(p, k, right) {
   const now = Date.now();
   let b = rec.b;
   if (right) {
-    // Past SOLID_BOX an item only climbs if it has actually rested. Answering
-    // the same card twice in one round should not look like memory.
-    if (b < SOLID_BOX || now >= dueAt(rec)) b = Math.min(MASTERED, b + 1);
+    // Climbing to the last box - being called "mastered" and growing a sprout
+    // in the garden - is the step that has to be earned across days. Everything
+    // below it may be reached in one session so the ladder keeps moving.
+    if (b < MASTERED - 1 || now >= dueAt(rec)) b = Math.min(MASTERED, b + 1);
   } else {
     b = Math.max(0, b - 2);
   }
@@ -2610,6 +2618,23 @@ const REVIEW_GAMES = ["word", "fish", "fruit", "pairs", "match"];
 const KANJI_GAMES  = ["match", "pairs", "fish", "fruit"];
 
 // Walk the whole ladder once so a game is never assigned twice in a row.
+// Can this game actually exercise enough of the level's items to pass it?
+// Only Word Building can fall short: it is limited to the words it can spell.
+function gameFitsLevel(p, game, keys) {
+  if (game !== "word") return true;
+  const list = courseOf(p).words || [];
+  if (!list.length) return false;
+  const learned = learnedKana(p);
+  const reach = {};
+  list.forEach(function (x) {
+    if (!x.w.split("").every(function (c) { return learned.indexOf(c) !== -1; })) return;
+    if (courseOf(p).kind === "kana") x.w.split("").forEach(function (c) { reach[c] = 1; });
+    else reach[x.w] = 1;
+  });
+  const covered = keys.filter(function (k) { return reach[k]; }).length;
+  return covered >= Math.ceil(keys.length * 0.8);
+}
+
 function gamesForLadder(p, ladder) {
   const tierModes = tierOf(p).modes;
   const courseGames = courseOf(p).games;
@@ -2625,6 +2650,11 @@ function gamesForLadder(p, ladder) {
     const allowed = step.kind === "kanji"
       ? tierModes
       : tierModes.filter(function (g) { return courseGames.indexOf(g) !== -1; });
+    // the items this level will actually test
+    const rowsAll = allRows(p);
+    const stepKeys = step.kind === "kanji"
+      ? KANJI_KEYS[step.group].slice()
+      : step.rows.reduce(function (a, r) { return a.concat(rowsAll[r].keys); }, []);
     if (seen[step.kind] === undefined) seen[step.kind] = 0;
     const ord = seen[step.kind]++;
     let chosen = null;
@@ -2637,6 +2667,7 @@ function gamesForLadder(p, ladder) {
         if (allowed.indexOf(g) === -1) continue;                 // tier does not have it
         const meta = MODE_META[g];
         if (meta.minRows && rowsKnown < meta.minRows) continue;   // not enough kana yet
+        if (!gameFitsLevel(p, g, stepKeys)) continue;             // could never pass this level
         if (pass === 0 && i > 0 && g === out[i - 1]) continue;
         chosen = g;
         break;
@@ -2841,6 +2872,22 @@ function renderMenu(p) {
   const game = MODE_META[lv.game];
   const learned = learnedKana(p);
   const done = learned.filter(function (k) { return box(p, k) >= MASTERED; }).length;
+  const finished = !!prog(p).done;
+  const growing = learned.filter(function (k) { return box(p, k) >= SOLID_BOX + 1; }).length;
+
+  // A whole review level can be fifty characters long; printing every one of
+  // them turns the sentence into a wall.
+  const shown = lv.kana.slice(0, 12).join(" ") +
+                (lv.kana.length > 12 ? " +" + (lv.kana.length - 12) + " more" : "");
+
+  // Finishing every level on day one is real progress even though nothing can
+  // be "mastered" yet - mastery deliberately needs a night's gap. Saying
+  // "0 mastered" to a child who just finished the topic reads as failure.
+  const progressLine = done
+    ? done + " of " + learned.length + " mastered so far."
+    : growing
+      ? growing + " of " + learned.length + " are nearly there — come back tomorrow and they can be mastered."
+      : done + " of " + learned.length + " mastered so far.";
 
   const ladder = ladderFor(p).map(function (step, i) {
     const cls = i < lv.index ? "learned" : i === lv.index ? "current" : "";
@@ -2856,15 +2903,26 @@ function renderMenu(p) {
                  : lv.kind === "kanji" ? "漢字 — "
                  : courseOf(p).kind === "vocab" ? "New words — "
                  : courseOf(p).kind === "grammar" ? "New grammar — " : "New kana — ") +
-          '<strong>' + lv.kana.join(" ") + '</strong>. ' +
-          done + ' of ' + learned.length + ' mastered so far.</p>' +
+          '<strong>' + shown + '</strong>. ' + progressLine + '</p>' +
         '<div class="ladder">' + ladder + '</div>' +
       '</div>' +
+      (finished
+        ? '<div class="donecard">' +
+            '<span class="playcard-verb">Topic finished</span>' +
+            '<span class="playcard-title">🎊 ' + courseOf(p).title + ' complete</span>' +
+            '<span class="playcard-sub">Every level passed. ' +
+              (done < learned.length
+                ? (learned.length - done) + ' still need a day’s rest before they count as mastered — ' +
+                  'keep playing and the garden fills in.'
+                : 'Every item mastered too — nothing left to prove here.') +
+            '</span>' +
+          '</div>'
+        : '') +
       '<button class="playcard ' + game.cls + '" id="playLevel">' +
-        '<span class="playcard-verb">' + game.verb + '</span>' +
+        '<span class="playcard-verb">' + (finished ? "Keep practising" : game.verb) + '</span>' +
         '<span class="playcard-title">' + game.icon + ' ' + game.title + '</span>' +
         '<span class="playcard-sub">' + game.sub + '</span>' +
-        '<span class="playcard-go">Play ' + lv.label + ' →</span>' +
+        '<span class="playcard-go">' + (finished ? "Play again" : "Play " + lv.label) + ' →</span>' +
       '</button>' +
       '<button class="btn" id="studyBtn">📖 What&rsquo;s in this level?</button>' +
       '<div class="row">' +
