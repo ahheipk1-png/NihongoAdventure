@@ -687,6 +687,10 @@ p  { margin: 0; color: var(--ink-soft); line-height: 1.6; }
   width: 42px; height: 42px; border-radius: 8px; object-fit: cover;
   border: 1.5px solid var(--rule); background: var(--ground-deep); flex: none;
 }
+.bag-img {
+  width: 46px; height: 46px; border-radius: 8px; object-fit: cover;
+  border: 1.5px solid var(--rule); background: var(--paper);
+}
 .fruit.arted .fruit-img {
   width: 76px; height: 76px; border-radius: 14px; object-fit: cover;
   border: 2px solid var(--rule); background: var(--paper); display: block;
@@ -704,6 +708,9 @@ p  { margin: 0; color: var(--ink-soft); line-height: 1.6; }
 }
 .card.arted .card-face { font-size: 13px; line-height: 1.15; }
 .pairgrid.wide .card.arted .card-face { font-size: 12px; }
+.ans.arted { flex-direction: column; display: flex; align-items: center; justify-content: center; gap: 5px; min-height: 108px; padding: 8px 6px; }
+.ans-img { width: 58px; height: 58px; border-radius: 10px; object-fit: cover; background: var(--ground-deep); }
+.ans.arted .ans-label { font-size: 14px; line-height: 1.15; }
 .prompt-photo { display: flex; justify-content: center; }
 .prompt-img {
   width: 96px; height: 96px; object-fit: cover; border-radius: var(--r-md);
@@ -1944,6 +1951,11 @@ function scoreOnly(p) {
 
 function picFor(key) { return (window.PICS && window.PICS[key]) || null; }
 
+// A picture carries the meaning, so it may only ever sit beside the English
+// form. Next to a Japanese prompt whose answer is the meaning it would simply
+// give the answer away.
+function artOK(form) { return form === "en"; }
+
 function picImg(key, cls) {
   const src = picFor(key);
   return src ? '<img class="' + cls + '" src="' + src + '" alt="" loading="lazy">' : "";
@@ -1992,7 +2004,12 @@ function distractors(p, answer, count, poolList, form) {
   function take(source) {
     shuffle(source).forEach(function (k) {
       if (chosen.length >= count) return;
-      const r = showForm(p, k, to);
+      // Kanji are merged into every course so kanji levels can run anywhere.
+      // They have no romaji/ans form, and showForm would fall back to the raw
+      // glyph - which would offer a kanji as if it were a particle.
+      const it = courseOf(p).items[k];
+      if (!it || it[to] === undefined || it[to] === null) return;
+      const r = it[to];
       if (!r || usedSound[r]) return;      // never two tiles reading the same
       usedSound[r] = true;
       chosen.push(k);
@@ -2714,9 +2731,11 @@ function renderMatch(p) {
     : '<div class="answers" data-n="' + t.choices + '">' +
         q.options.map(function (k, i) {
           const lab = showForm(p, k, q.to);
+          const tileArt = artOK(q.to) ? picImg(k, "ans-img") : "";
           return '<button class="ans ' + formClass(q.to) + (lab.length > 6 ? " long" : "") +
-                 '" data-k="' + k + '">' +
-                 '<span class="key">' + (i + 1) + '</span>' + esc(showForm(p, k, q.to)) + '</button>';
+                 (tileArt ? " arted" : "") + '" data-k="' + k + '">' +
+                 '<span class="key">' + (i + 1) + '</span>' + tileArt +
+                 '<span class="ans-label">' + esc(lab) + '</span></button>';
         }).join("") + '</div>';
 
   screenEl.innerHTML =
@@ -2733,7 +2752,7 @@ function renderMatch(p) {
               '<span class="cell-glyph' + promptCls + (promptText.length > 4 ? " long" : "") + '">' +
               esc(promptText) + '</span></div>') +
         (hint ? '<div class="hint">' + esc(hint) + '</div>' : '') +
-        (picFor(q.answer) && q.from !== "en"
+        (artOK(q.from) && picFor(q.answer)
           ? '<div class="prompt-photo">' + picImg(q.answer, "prompt-img") + '</div>' : '') +
       '</div>' +
       answersHTML +
@@ -2850,7 +2869,7 @@ function renderPairs(p) {
                 (c.done ? " done" : picked ? " up" : c.open ? " open" : "");
     // The picture rides on the Japanese side, so word, meaning and image all
     // come together on a correct pair.
-    const art = (c.kind === "front" && shown) ? picFor(c.kana) : null;
+    const art = (shown && artOK(form)) ? picFor(c.kana) : null;
     return '<button class="' + cls + (art ? " arted" : "") + '" data-i="' + i + '"' +
            (c.done ? " disabled" : "") + '>' +
            (art ? picImg(c.kana, "card-img") : "") +
@@ -2955,7 +2974,7 @@ function renderFruit(p) {
     const wide = label.length > 3;
     // When the item has an illustration, show the illustration itself rather
     // than a generic fruit - the picture is the whole point of the exercise.
-    const art = picFor(it.kana);
+    const art = artOK(fromF) ? picFor(it.kana) : null;
     return '<button class="fruit' + (art ? " arted" : "") + (wide || art ? " wide" : "") +
              (it.placed ? " gone" : "") + '" data-f="' + i + '"' +
              (it.placed ? " disabled" : "") + ' aria-label="' + esc(label) + '">' +
@@ -2972,6 +2991,7 @@ function renderFruit(p) {
              '" data-b="' + i + '" data-k="' + k + '">' +
              '<span class="bag-mouth"></span>' +
              (filled ? '<span class="caught-kana ' + formClass(fromF) + '">' + esc(showForm(p, k, fromF)) + '</span>' : '') +
+             (artOK(toF) && picFor(k) ? picImg(k, "bag-img") : '') +
              '<span class="bag-label ' + formClass(toF) + (label.length > 6 ? " long" : "") + '">' + esc(label) + '</span>' +
            '</button>';
   }).join("");

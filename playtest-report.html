@@ -164,6 +164,9 @@ speeds.</p>
   child already knew, because forgetting <em>where a card was</em> ran through the same code path as
   getting the answer wrong. It has become <strong>Pair Up</strong> — one side of every pair stays
   open, so the round tests Japanese instead of spatial recall.</p>
+  <p>A third, found by the independent review and reproduced here, is <strong>also fixed</strong>:
+  Word Building could never be passed on any vocabulary topic, because it credited the letters
+  rather than the word.</p>
   <p>What remains are two things in the <em>reward</em> layer. <strong>The Ninja tier is close to
   unwinnable</strong> at a realistic answering pace, and <strong>the result screen contradicts
   itself</strong>, telling a child they passed when they did not advance.</p>
@@ -172,6 +175,7 @@ speeds.</p>
 <div class="grid2">
   <div class="stat good"><b>981 → 375</b><span>phone layout width, after the fix</span></div>
   <div class="stat good"><b>70 → 100%</b><span>Pair Up win rate, after the redesign</span></div>
+  <div class="stat good"><b>0 → 9/10</b><span>Word Building items credited, after the fix</span></div>
   <div class="stat good"><b>246 B</b><span>saves and restores perfectly</span></div>
   <div class="stat warn"><b>~36 min</b><span>to "finish" hiragana…</span></div>
   <div class="stat bad"><b>59%</b><span>…with only this much mastered</span></div>
@@ -279,7 +283,32 @@ at 5 of 10 — turned out to be my test harness, not the game; it re-deals corre
 </div>
 
 <div class="finding critical">
-  <div class="head"><span class="chip critical">Critical</span><h3>3. The result screen contradicts itself</h3></div>
+  <div class="head"><span class="chip critical">Critical</span><span class="chip good">Fixed</span><h3>3. Word Building could never be passed on a vocabulary topic</h3></div>
+  <p>On a kana topic the letter tiles <em>are</em> the items being learned, so crediting each placed
+  letter is right. On a vocabulary topic the item is the whole word — but the code credited the
+  letters anyway.</p>
+  <dl>
+    <dt>Evidence</dt><dd>Measured cold on Animals: four perfectly played rounds credited
+      <strong>0 of the level's 10 items</strong>, created <strong>18 stray character keys</strong>
+      belonging to no topic, and left the level at <strong>0% solid</strong> against the 80% needed.
+      The level was <strong>unpassable no matter how well it was played</strong>.</dd>
+    <dt>Why it matters</dt><dd>This is the worst kind of bug for a child: they do everything right,
+      win the round, see the celebration — and the level never moves. It affects the Word Building
+      level on all eight vocabulary topics.</dd>
+    <dt>How it was missed</dt><dd>My own progression simulation called the scoring function directly
+      rather than playing the games, so it never exercised this path. The independent review caught
+      it; I then reproduced it by cold-playing the real game.</dd>
+    <dt>Fix applied</dt><dd>A letter moves a box only when the letter is itself an item of the
+      topic; otherwise the <em>word</em> is credited once, on completion. Stray keys from earlier
+      saves are dropped on load.</dd>
+    <dt>Measured after</dt><dd>Animals now credits 9/10 items and advances; Nouns 10/10; zero stray
+      keys; kana topics unchanged. All <strong>208 levels across all 12 topics</strong> exercised
+      clean.</dd>
+  </dl>
+</div>
+
+<div class="finding critical">
+  <div class="head"><span class="chip critical">Critical</span><h3>4. The result screen contradicts itself</h3></div>
   <p>Winning a round and advancing a level are two independent systems, but they are presented as
   one message.</p>
   <dl>
@@ -298,7 +327,7 @@ at 5 of 10 — turned out to be my test harness, not the game; it re-deals corre
 </div>
 
 <div class="finding major">
-  <div class="head"><span class="chip major">Major</span><h3>4. Ninja is close to unwinnable</h3></div>
+  <div class="head"><span class="chip major">Major</span><h3>5. Ninja is close to unwinnable</h3></div>
   <p>Ninja stacks a bigger quota (14), a faster drain (5.2/s), a smaller refill (15) and a harsher
   penalty (−12). Those compound.</p>
   <div class="tablewrap">
@@ -327,7 +356,7 @@ at 5 of 10 — turned out to be my test harness, not the game; it re-deals corre
 </div>
 
 <div class="finding major">
-  <div class="head"><span class="chip major">Major</span><h3>5. Fishing Pond is the odd one out in every tier</h3></div>
+  <div class="head"><span class="chip major">Major</span><h3>6. Fishing Pond is the odd one out in every tier</h3></div>
   <p>Fishing is the only game at a 1.0× drain multiplier; the others sit at 0.55–0.75×. On top of
   that it is the only game where you must also <em>track and hit a moving target</em>, a cost the
   simulation does not even capture.</p>
@@ -344,7 +373,7 @@ at 5 of 10 — turned out to be my test harness, not the game; it re-deals corre
 </div>
 
 <div class="finding major">
-  <div class="head"><span class="chip major">Major</span><h3>6. Finishing a topic does not mean knowing it — and nothing says so</h3></div>
+  <div class="head"><span class="chip major">Major</span><h3>7. Finishing a topic does not mean knowing it — and nothing says so</h3></div>
   <p>A level advances when 80% of its items reach box 2. The garden calls an item mastered at box 4.
   Those two bars are far apart, and only one of them gates progress.</p>
   <div class="grid2">
@@ -366,7 +395,7 @@ at 5 of 10 — turned out to be my test harness, not the game; it re-deals corre
 </div>
 
 <div class="finding minor">
-  <div class="head"><span class="chip minor">Minor</span><h3>7. Match punishes a retry that Fruit Basket rewards</h3></div>
+  <div class="head"><span class="chip minor">Minor</span><h3>8. Match punishes a retry that Fruit Basket rewards</h3></div>
   <p>In Match, answering wrongly and then correctly gives <strong>no score and no power</strong> —
   the code runs <code>bump()</code> but never <code>powerGain()</code>. In Fruit Basket the same
   sequence awards both.</p>
@@ -385,7 +414,7 @@ at 5 of 10 — turned out to be my test harness, not the game; it re-deals corre
 </div>
 
 <div class="finding minor">
-  <div class="head"><span class="chip minor">Minor</span><h3>8. Two hours of kana before the fun topics open</h3></div>
+  <div class="head"><span class="chip minor">Minor</span><h3>9. Two hours of kana before the fun topics open</h3></div>
   <p>Topics unlock strictly in order, so Animals — the topic with the best illustrations and the most
   obvious appeal to a young child — sits behind Hiragana, Katakana and Kana Mix.</p>
   <dl>
@@ -401,7 +430,7 @@ at 5 of 10 — turned out to be my test harness, not the game; it re-deals corre
 </div>
 
 <div class="finding minor">
-  <div class="head"><span class="chip minor">Minor</span><h3>9. Accessibility gaps worth an hour</h3></div>
+  <div class="head"><span class="chip minor">Minor</span><h3>10. Accessibility gaps worth an hour</h3></div>
   <ul class="tight">
     <li><strong>No <code>lang</code> attribute.</strong> Assistive tech does not know the page is
       part-Japanese, so kana get read with an English voice. (A <code>color-scheme</code> hint went
@@ -416,6 +445,30 @@ at 5 of 10 — turned out to be my test harness, not the game; it re-deals corre
       barrier for a child with slower motor or processing speed. A "no timer" toggle would cost
       nothing and would let one child play a tier that currently excludes them.</li>
   </ul>
+</div>
+
+<div class="finding minor">
+  <div class="head"><span class="chip minor">Minor</span><h3>11. Further points from the independent review</h3></div>
+  <p>Six expert lenses reviewed the source alongside my playthrough, each finding put through a
+  sceptic that tried to refute it against the code. These survived:</p>
+  <ul class="tight">
+    <li><strong>Kanji are introduced once and never revisited.</strong> Each kanji level serves a
+      new group; no later level brings an earlier group back, so the 105 characters get one exposure
+      each within a topic.</li>
+    <li><strong>The widest review is the level you can never leave.</strong> A topic's final level
+      is its all-rows review — reaching it means sitting there permanently, which is good for
+      practice but means "finished" and "still going" look identical.</li>
+    <li><strong>Focus is lost after every answer.</strong> Every game except Match rebuilds its DOM
+      on each correct answer without restoring focus, so keyboard and switch users lose their
+      place each turn.</li>
+    <li><strong>White kana on saturated fruit</strong> falls below the contrast floor for large
+      text. I could not see this — no screenshots this session — so it is worth your eyes.</li>
+    <li><strong>It is not spaced repetition, strictly.</strong> The Leitner boxes have no clock:
+      an item at box 4 is "known" forever rather than becoming due again after a delay. Fine for a
+      game; worth knowing it will not by itself defeat forgetting over weeks.</li>
+  </ul>
+  <p>Two proposed findings were <em>refuted</em> during verification and are not listed — the
+  sceptic pass earned its place.</p>
 </div>
 
 <h2>Illustrations, now that they are in the games</h2>
@@ -444,6 +497,9 @@ would pay off; verbs and grammar probably never will.</p>
 <ol class="tight">
   <li><s>Stop Memory Pairs demoting kana on a mismatch.</s> <strong>Done</strong> — solved at the
     root by turning it into Pair Up.</li>
+  <li><s>Make Word Building creditable on vocabulary topics.</s> <strong>Done</strong> — it was a
+    progression blocker on eight topics.</li>
+  <li><s>Add a viewport tag.</s> <strong>Done</strong> — phones were rendering the game at 38%.</li>
   <li><strong>Split the round message from the level message.</strong> Small, and it removes the
     only place where the game says something untrue.</li>
   <li><strong>Soften Ninja and Fishing.</strong> Four numbers, and the oldest child stops losing
