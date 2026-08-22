@@ -2567,7 +2567,7 @@ function render() {
   else if (screen === "study")   renderStudy(p);
   else if (screen === "profile") renderProfileEditor(p);
   else if (screen === "result")  renderResult(p);
-
+  else if (screen === "draw")    renderDraw(p);
   else if (screen === "wallet")  renderWallet(p);
   else if (screen === "room")    renderRoom(p);
   else                           renderHome();
@@ -4059,16 +4059,18 @@ function studiedCards(p) {
 let room = null;
 
 function roomPool(p) {
-  return metKeys(p).filter(function (k) { return !!cardFace(p, k).en; });
+  const answerable = function (k) { return !!cardFace(p, k).en; };
+  const met = metKeys(p).filter(answerable);
+  return met.length >= 4 ? met : cardPool(p).filter(answerable);
 }
 
-// Four is the floor: below it a question cannot be given four honest options.
 function roomCanOpen(p) { return roomPool(p).length >= 4; }
 
 function nextRoomQ(p) {
   const pool = roomPool(p);
-  const key = room.keys[room.idx++];
-  if (!key) { awardCard(p); return; }
+  // Avoid asking the same thing twice in a row over a twenty-question stretch.
+  const fresh = pool.filter(function (k) { return k !== (room.q && room.q.key); });
+  const key = pick(fresh.length ? fresh : pool);
   const kind = cardAnswerKind(key);
   const right = cardFace(p, key).en;
   const wrongs = shuffle(pool.filter(function (k) {
@@ -4081,45 +4083,11 @@ function nextRoomQ(p) {
   room.q = { key: key, options: shuffle([key].concat(wrongs)), answered: false, reverse: reverse };
 }
 
-// Both rewards are the same run of questions at different prices: five to
-// spin the draw a level has already earned, ten to buy a card outright.
-const QUIZ_LEN = { draw: 5, room: 15 };
-
-function startQuiz(p, kind) {
+function startRoom(p) {
   stopLoops();
-  const pool = roomPool(p);
-  // Distinct items only - a five or ten question run that repeats itself
-  // stops being a check and starts being a chore. With too little learned to
-  // ask anything fair, the run is empty and the card is simply given, which is
-  // exactly what happens on the first level.
-  const keys = pool.length >= 4
-    ? shuffle(pool).slice(0, Math.min(QUIZ_LEN[kind] || 5, pool.length))
-    : [];
-  room = { kind: kind, need: keys.length, keys: keys, idx: 0,
-           done: 0, missed: 0, q: null, prize: null };
-  if (!room.need) { awardCard(p); }      // nothing to ask yet - this is level 1
-  else { nextRoomQ(p); }
+  room = { need: tierOf(p).power.quota * 2, done: 0, missed: 0, q: null, prize: null };
+  nextRoomQ(p);
   go("room");
-}
-
-function startRoom(p) { startQuiz(p, "room"); }
-
-function awardCard(p) {
-  const paid = room.kind === "room";
-  const perfect = room.missed === 0 && room.need > 0;
-  const tries = [drawCard(p, { preferNew: paid }), drawCard(p, { preferNew: paid })];
-  if (paid && perfect) tries.push(drawCard(p, { preferNew: true }));
-  const key = tries.filter(Boolean).sort(function (x, y) {
-    return cardValue(y) - cardValue(x);
-  })[0];
-  if (!key) { go("menu"); return; }
-  const already = !!cards(p)[key];
-  cards(p)[key] = (cards(p)[key] || 0) + 1;
-  const bonus = already ? Math.max(3, Math.round(cardValue(key) / 4)) : (paid ? 5 : 2);
-  p.stars += bonus + (paid && perfect ? 5 : 0);
-  room.prize = { key: key, already: already, perfect: paid && perfect, bonus: bonus };
-  save();
-  audio.star();
 }
 
 function renderRoom(p) {
@@ -4132,8 +4100,7 @@ function renderRoom(p) {
     screenEl.innerHTML =
       '<div class="stack">' +
         '<div class="sheet stack" style="align-items:center">' +
-          '<span class="eyebrow">' +
-            (room.need ? room.need + ' questions answered' : 'Level passed') +
+          '<span class="eyebrow">' + room.need + ' questions answered' +
             (room.prize.perfect ? ' · not one missed' : '') + '</span>' +
           '<h2 style="text-align:center">🃏 ' +
             (room.prize.already ? "Another copy" : "A new card") + '</h2>' +
@@ -4152,14 +4119,12 @@ function renderRoom(p) {
             'Collection now worth <strong>' + walletValue(p) + '</strong>.</p>' +
         '</div>' +
         '<div class="row">' +
-          (roomCanOpen(p)
-            ? '<button class="btn btn-primary" id="roomAgain">🃏 Card Room</button>' : '') +
+          '<button class="btn btn-primary" id="roomAgain">Another round</button>' +
           '<button class="btn" id="roomWallet">🃏 Wallet</button>' +
           '<button class="btn btn-ghost" id="roomOut">Done</button>' +
         '</div>' +
       '</div>';
-    const ra = document.getElementById("roomAgain");
-    if (ra) ra.onclick = function () { startRoom(p); };
+    document.getElementById("roomAgain").onclick = function () { startRoom(p); };
     document.getElementById("roomWallet").onclick = function () { room = null; go("wallet"); };
     document.getElementById("roomOut").onclick = function () { room = null; go("menu"); };
     return;
@@ -4175,8 +4140,7 @@ function renderRoom(p) {
   screenEl.innerHTML =
     '<div class="stack">' +
       '<div class="row">' +
-        '<span class="board-tag">' + (room.kind === "room" ? "🃏 Card Room" : "🎁 Lucky draw") +
-          ' <b>' + room.done + ' / ' + room.need + '</b></span>' +
+        '<span class="board-tag">🃏 Card Room <b>' + room.done + ' / ' + room.need + '</b></span>' +
       '</div>' +
       '<div class="strip"><div class="pips">' + pips.join("") + '</div></div>' +
       '<div class="sheet stack" style="align-items:center;gap:16px">' +
@@ -4202,8 +4166,7 @@ function renderRoom(p) {
       '</div>' +
       '<p style="font-size:12.5px;text-align:center">Answer ' + room.need +
         ' to win a card. A wrong one does not count against you — it just does not count.</p>' +
-      '<div class="row"><button class="btn btn-ghost btn-sm" id="roomQuit">' +
-        (room.kind === "room" ? "Leave the room" : "Skip the draw") + '</button></div>' +
+      '<div class="row"><button class="btn btn-ghost btn-sm" id="roomQuit">Leave the room</button></div>' +
     '</div>';
 
   screenEl.querySelectorAll("[data-r]").forEach(function (b) {
@@ -4218,7 +4181,22 @@ function renderRoom(p) {
         room.done += 1;
         save();
         if (room.done >= room.need) {
-          awardCard(p);
+          // The long price buys better odds, and a clean run buys better ones
+          // still: draw two, or three if nothing was missed, and keep the best.
+          const perfect = room.missed === 0;
+          const tries = [drawCard(p, { preferNew: true }), drawCard(p, { preferNew: true })];
+          if (perfect) tries.push(drawCard(p, { preferNew: true }));
+          const key = tries.filter(Boolean).sort(function (x, y) {
+            return cardValue(y) - cardValue(x);
+          })[0];
+          const already = !!cards(p)[key];
+          cards(p)[key] = (cards(p)[key] || 0) + 1;
+          // A duplicate is never a dead end - it is worth stars instead.
+          const bonus = already ? Math.max(3, Math.round(cardValue(key) / 4)) : 5;
+          p.stars += bonus + (perfect ? 5 : 0);
+          room.prize = { key: key, already: already, perfect: perfect, bonus: bonus };
+          save();
+          audio.star();
         } else {
           nextRoomQ(p);
         }
@@ -4234,6 +4212,102 @@ function renderRoom(p) {
     };
   });
   document.getElementById("roomQuit").onclick = function () { room = null; go("menu"); };
+}
+
+function renderDraw(p) {
+  const askable = studiedCards(p);
+  const gate = session && session.drawGate;
+
+  if (askable.length && !gate) {
+    const askKey = pick(askable);
+    const kind = cardAnswerKind(askKey);
+    const right = cardFace(p, askKey).en;
+    const wrongs = shuffle(cardPool(p).filter(function (k) {
+      return k !== askKey && cardAnswerKind(k) === kind &&
+             cardFace(p, k).en && cardFace(p, k).en !== right;
+    })).slice(0, 3);
+    session.drawGate = { key: askKey, options: shuffle([askKey].concat(wrongs)), tries: 0 };
+    return renderDraw(p);
+  }
+
+  if (askable.length && gate && !gate.passed) {
+    const face = cardFace(p, gate.key);
+    screenEl.innerHTML =
+      '<div class="stack">' +
+        '<div class="sheet stack" style="align-items:center">' +
+          '<span class="eyebrow">One from your collection</span>' +
+          '<h2 style="text-align:center">What is this one?</h2>' +
+          '<div class="drawcard ' + cardRarity(cardValue(gate.key)) + '">' +
+            (face.pic ? picImg(gate.key, "drawcard-img") : '') +
+            '<span class="drawcard-jp">' + esc(face.jp) + '</span>' +
+          '</div>' +
+          (speech.can(gate.key) ? speakerBtn(p, gate.key, null) : '') +
+        '</div>' +
+        '<div class="answers" data-n="4">' +
+          gate.options.map(function (k) {
+            return '<button class="ans en" data-g="' + esc(k) + '">' +
+                   esc(cardFace(p, k).en) + '</button>';
+          }).join("") +
+        '</div>' +
+        '<p style="font-size:13px;text-align:center">Get it right to spin the lucky draw.</p>' +
+      '</div>';
+    screenEl.querySelectorAll("[data-g]").forEach(function (b) {
+      b.onclick = function () {
+        if (b.getAttribute("data-g") === gate.key) {
+          audio.good();
+          gate.passed = true;
+          renderDraw(p);
+        } else {
+          audio.bad();
+          b.classList.add("wrong", "dim");
+          b.disabled = true;
+          gate.tries += 1;
+        }
+      };
+    });
+    return;
+  }
+
+  // the draw itself
+  if (!session.drawResult) {
+    const key = drawCard(p);
+    if (!key) { go("menu"); return; }
+    const already = !!cards(p)[key];
+    cards(p)[key] = (cards(p)[key] || 0) + 1;
+    session.drawResult = { key: key, already: already };
+    p.stars += 2;
+    save();
+    audio.star();
+  }
+
+  const key = session.drawResult.key;
+  const face = cardFace(p, key);
+  const val = cardValue(key);
+  const rar = cardRarity(val);
+  screenEl.innerHTML =
+    '<div class="stack">' +
+      '<div class="sheet stack" style="align-items:center">' +
+        '<span class="eyebrow">' + (session.drawResult.already ? "Another copy" : "New card") + '</span>' +
+        '<h2 style="text-align:center">🃏 ' + (session.drawResult.already ? "You already had this one" : "You won a card") + '</h2>' +
+        '<div class="drawcard reveal ' + rar + '">' +
+          (face.pic ? picImg(key, "drawcard-img") : '') +
+          '<span class="drawcard-jp">' + esc(face.jp) + '</span>' +
+          '<span class="drawcard-en">' + esc(face.en) + '</span>' +
+          '<span class="drawcard-val">' + rar + ' · ' + val + '</span>' +
+        '</div>' +
+        (speech.can(key) ? speakerBtn(p, key, null) : '') +
+        '<p style="text-align:center">Your collection is now worth <strong>' + walletValue(p) + '</strong>.</p>' +
+      '</div>' +
+      '<div class="row">' +
+        '<button class="btn btn-primary" id="drawOn">Keep going →</button>' +
+        '<button class="btn" id="drawWallet">🃏 Wallet</button>' +
+      '</div>' +
+    '</div>';
+  document.getElementById("drawOn").onclick = function () {
+    if (session) { session.drawGate = null; session.drawResult = null; }
+    go("menu");
+  };
+  document.getElementById("drawWallet").onclick = function () { go("wallet"); };
 }
 
 function renderWallet(p) {
@@ -4335,7 +4409,10 @@ function renderResult(p) {
   if (s.levelUp) audio.star();
   document.getElementById("again").onclick = function () { startLevel(p); };
   const dr = document.getElementById("toDraw");
-  if (dr) dr.onclick = function () { audio.prime(); startQuiz(p, "draw"); };
+  if (dr) dr.onclick = function () {
+    if (session) { session.drawGate = null; session.drawResult = null; }
+    go("draw");
+  };
   document.getElementById("toGarden").onclick = function () { go("garden"); };
   document.getElementById("toMenu2").onclick = function () { go("menu"); };
 }
