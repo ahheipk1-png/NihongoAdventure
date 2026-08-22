@@ -3108,7 +3108,9 @@ function renderMenu(p) {
       '<div class="row">' +
         '<button class="btn" id="toTopics">📚 Topics</button>' +
         '<button class="btn" id="toGarden">🌱 Garden</button>' +
-        (roomCanOpen(p) ? '<button class="btn" id="toRoom">🃏 Card Room</button>' : '') +
+        (roomCanOpen(p)
+          ? '<button class="btn" id="toRoom">🃏 Card Room · ' + roomCost(p) + ' questions</button>'
+          : '') +
         '<button class="btn btn-ghost btn-sm" id="editMe">Settings</button>' +
       '</div>' +
     '</div>';
@@ -4065,6 +4067,8 @@ function roomPool(p) {
 // Four is the floor: below it a question cannot be given four honest options.
 function roomCanOpen(p) { return roomPool(p).length >= 4; }
 
+function roomCost(p) { return Math.min(QUIZ_LEN.room, roomPool(p).length); }
+
 function nextRoomQ(p) {
   const pool = roomPool(p);
   const key = room.keys[room.idx++];
@@ -4153,7 +4157,8 @@ function renderRoom(p) {
         '</div>' +
         '<div class="row">' +
           (roomCanOpen(p)
-            ? '<button class="btn btn-primary" id="roomAgain">🃏 Card Room</button>' : '') +
+            ? '<button class="btn btn-primary" id="roomAgain">🃏 Card Room · ' +
+              roomCost(p) + ' more</button>' : '') +
           '<button class="btn" id="roomWallet">🃏 Wallet</button>' +
           '<button class="btn btn-ghost" id="roomOut">Done</button>' +
         '</div>' +
@@ -4269,7 +4274,10 @@ function renderWallet(p) {
         ? '<div class="wgrid">' + grid + '</div>'
         : '<div class="note">No cards yet. Pass a level and the lucky draw opens.</div>') +
       '<div class="row">' +
-        (roomCanOpen(p) ? '<button class="btn btn-primary" id="wRoom">🃏 Card Room — win more</button>' : '') +
+        (roomCanOpen(p)
+          ? '<button class="btn btn-primary" id="wRoom">🃏 Card Room — ' + roomCost(p) +
+            ' questions for a card</button>'
+          : '') +
         '<button class="btn btn-ghost" id="wBack">Back</button>' +
       '</div>' +
     '</div>';
