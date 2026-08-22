@@ -365,6 +365,19 @@ p  { margin: 0; color: var(--ink-soft); line-height: 1.6; }
 .playcard:hover { transform: translateY(-2px); box-shadow: var(--shadow-lift); }
 .playcard:active { transform: translateY(0) scale(.995); }
 .playcard.m-fish  { border-left-color: var(--ai-bright); }
+.playcard.m-listen { border-left-color: var(--murasaki, var(--ai)); }
+.hearbig {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  width: 168px; height: 168px; border-radius: 50%;
+  border: 2.5px solid var(--ai); background: var(--ai-wash); color: var(--ai);
+  cursor: pointer; font: inherit; animation: pop .3s ease;
+}
+.hearbig:active { transform: scale(.96); }
+.hearbig.shake { animation: shake .4s ease; }
+.hearbig.good { border-color: var(--wakakusa); background: var(--wakakusa-wash); color: var(--wakakusa); }
+.hearbig:focus-visible { outline: 3px solid var(--ai); outline-offset: 3px; }
+.hearbig-icon { font-size: 58px; line-height: 1; }
+.hearbig-label { font-size: 13px; font-weight: 800; }
 .playcard.m-fruit { border-left-color: var(--fruit-1); }
 .playcard.m-pairs { border-left-color: var(--wakakusa); }
 .playcard.m-word  { border-left-color: var(--yamabuki); }
@@ -1426,19 +1439,19 @@ const TIERS = {
     label:"Sprout", blurb:"Three choices, no timer, and wrong answers just try again.",
     choices:3, reverse:0, retry:true, roundLen:8,
     power:{ quota:6,  drain:2.6, refill:24, penalty:0 },
-    modes:["match","pairs","fruit","word"], dakuten:false
+    modes:["match","listen","pairs","fruit","word"], dakuten:false
   },
   explorer: {
     label:"Explorer", blurb:"Four choices, both directions, and streaks to chase.",
     choices:4, reverse:0.35, retry:false, roundLen:12,
     power:{ quota:10, drain:4.0, refill:18, penalty:8 },
-    modes:["match","pairs","fruit","word","fish"], dakuten:false
+    modes:["match","listen","pairs","fruit","word","fish"], dakuten:false
   },
   ninja: {
     label:"Ninja", blurb:"Six choices, optional typing, and が/ざ/だ/ば/ぱ once the basics are solid.",
     choices:6, reverse:0.4, retry:false, roundLen:15,
     power:{ quota:14, drain:4.2, refill:18, penalty:8 },
-    modes:["match","pairs","fruit","word","fish"], dakuten:true
+    modes:["match","listen","pairs","fruit","word","fish"], dakuten:true
   }
 };
 
@@ -1697,7 +1710,7 @@ function buildKanaCourse(title, sub, rows, extraRows, romajiMap, confuse, words)
     title: title, sub: sub, kind: "kana", forms: ["jp", "romaji"],
     units: unitsFromRows(rows), extraUnits: unitsFromRows(extraRows),
     items: withKanji(items, confuse), confuse: confuse, words: words || null,
-    games: ["match", "pairs", "fruit", "fish"].concat(words ? ["word"] : [])
+    games: ["match", "listen", "pairs", "fruit", "fish"].concat(words ? ["word"] : [])
   };
 }
 
@@ -1713,7 +1726,7 @@ function buildVocabCourse(title, sub, groups) {
   return {
     title: title, sub: sub, kind: "vocab", forms: ["jp", "en"],
     units: units, extraUnits: [], items: withKanji(items, {}), confuse: KANJI_CONFUSE, words: words,
-    games: ["match", "pairs", "fruit", "word", "fish"]
+    games: ["match", "listen", "pairs", "fruit", "word", "fish"]
   };
 }
 
@@ -1731,7 +1744,7 @@ function buildMixCourse() {
     title: "Kana Mix", sub: "あ ⇄ ア ⇄ a", kind: "convert",
     forms: ["hira", "kata", "romaji"],
     units: units, extraUnits: [], items: withKanji(items, {}), confuse: CONFUSABLE, words: null,
-    games: ["match", "pairs", "fruit", "fish"]
+    games: ["match", "listen", "pairs", "fruit", "fish"]
   };
 }
 
@@ -1748,7 +1761,7 @@ function buildGrammarCourse(title, sub, groups) {
   return {
     title: title, sub: sub, kind: "grammar", forms: ["jp", "ans"],
     fixedDirection: true, units: units, extraUnits: [], items: withKanji(items, {}),
-    confuse: KANJI_CONFUSE, words: null, games: ["match", "fish"]
+    confuse: KANJI_CONFUSE, words: null, games: ["match", "listen", "fish"]
   };
 }
 
@@ -2083,6 +2096,21 @@ function bump(p, k, right) {
   prog(p).boxes[k] = { b: b, t: now };
 }
 
+/* Clearing a record without deleting the player: the character, the face, the
+   tier and the cards already collected stay; the levels, the box states, the
+   green stars and the money go. A child who wants a clean sheet keeps the
+   thing they picked and loses only the numbers. */
+function wipeRecord(p) {
+  p.progress = { hiragana: { level: 0, boxes: {}, perfect: {} } };
+  p.course = "hiragana";
+  p.money = 0;
+}
+
+/* Bumping this string clears every player's record once, on their next load.
+   It is deliberately manual: a save is a child's week of work, and nothing
+   should be able to erase it as a side effect of shipping a change. */
+const RECORDS_RESET = "2026-08-22-fresh-start";
+
 function newProfile(name, face, tier) {
   return {
     id: "p" + Math.floor(Math.random() * 1e9).toString(36) + state.profiles.length,
@@ -2258,17 +2286,26 @@ function boardPool(p) {
   const info = levelInfo(p);
   let kana = info.kana.slice();
 
+  /* Whatever gets added here has to survive the same test as the level's own
+     items. On a kanji level the pairing is jp-to-kana, and a plain kana item
+     has no separate reading - it would arrive on the board asking the child to
+     match せ with せ, which is the very thing kanji levels were just fixed for. */
+  const forms = info.forms || courseOf(p).forms;
+  const asks = function (k) { return tellsApart(p, k, forms); };
+
   // Anything learned earlier that has fallen due outranks new material — that
   // is the whole point of spacing. Cap it so a board never becomes all revision.
   const now = Date.now();
   const overdue = learnedKana(p).filter(function (k) {
-    return kana.indexOf(k) === -1 && box(p, k) > 0 && isDue(p, k, now);
+    return kana.indexOf(k) === -1 && box(p, k) > 0 && isDue(p, k, now) && asks(k);
   });
   if (overdue.length) {
     kana = pickFive(p, overdue).slice(0, 2).concat(kana);
   }
   if (kana.length < BOARD_SIZE) {
-    const older = learnedKana(p).filter(function (k) { return kana.indexOf(k) === -1; });
+    const older = learnedKana(p).filter(function (k) {
+      return kana.indexOf(k) === -1 && asks(k);
+    });
     if (older.length) {
       kana = kana.concat(pickFive(p, older).slice(0, BOARD_SIZE - kana.length));
     }
@@ -2352,6 +2389,8 @@ const speech = (function () {
   return {
     // Something can be spoken if there is a clip for it, or a Japanese voice.
     can: function (key) { return !!clip(key) || !!jaVoice; },
+    // Is there any way at all to make a sound on this device?
+    ready: function () { return !!window.AUDIO || !!jaVoice; },
     say: function (key) {
       const src = clip(key);
       if (src) {
@@ -2373,6 +2412,17 @@ const speech = (function () {
     }
   };
 })();
+
+/* Whether this device can speak at all, decided once. The ladder promises that
+   Level 7 is the same level every time it is looked at, and voices arrive
+   asynchronously - so re-asking mid-session would let a level change its game
+   under the player. It is re-read only between rounds. */
+let HEARING = speech.ready();
+if ("speechSynthesis" in window) {
+  window.speechSynthesis.addEventListener("voiceschanged", function () {
+    if (!session || session.ended) HEARING = speech.ready();
+  });
+}
 
 // Hearing an item is the same as being told its sound, so a speaker is hidden
 // exactly where a romaji answer would be: on the kana courses, while asking.
@@ -2538,7 +2588,7 @@ function stopLoops() {
 // Fishing still drains fastest - it is the arcade one - but nowhere near the
 // old 1.0, which made it unwinnable. The simulation understates it too, since
 // it cannot model hunting a moving fish, so this errs generous on purpose.
-const DRAIN_RATE = { fish: 0.85, match: 0.75, fruit: 0.7, word: 0.6, pairs: 0.6 };
+const DRAIN_RATE = { fish: 0.85, match: 0.75, fruit: 0.7, listen: 0.65, word: 0.6, pairs: 0.6 };
 
 // A hard clock is an accessibility barrier as much as a difficulty setting.
 const PACE = { normal: 1, gentle: 0.45, off: 0 };
@@ -2653,6 +2703,7 @@ function render() {
   if (!p) { renderHome(); return; }
   if      (screen === "menu")    renderMenu(p);
   else if (screen === "match")   renderMatch(p);
+  else if (screen === "listen")  renderMatch(p);   // same question, heard instead of read
   else if (screen === "pairs")   renderPairs(p);
   else if (screen === "fruit")   renderFruit(p);
   else if (screen === "word")    renderWord(p);
@@ -2825,6 +2876,7 @@ function renderProfileEditor(p) {
         '<button class="btn btn-primary" id="saveP">' + (isNew ? "Start playing" : "Save") + '</button>' +
         '<button class="btn btn-ghost" id="cancelP">Cancel</button>' +
         '<span class="spacer"></span>' +
+        (isNew ? "" : '<button class="btn btn-sm" id="freshP">Start fresh</button>') +
         (isNew ? "" : '<button class="btn btn-sm btn-danger" id="delP">Delete player</button>') +
       '</div>' +
     '</div>';
@@ -2837,6 +2889,16 @@ function renderProfileEditor(p) {
   screenEl.querySelectorAll("[data-tier]").forEach(function (b) {
     b.onclick = function () { draft.tier = b.getAttribute("data-tier"); renderProfileEditor(p); };
   });
+  const fresh = document.getElementById("freshP");
+  if (fresh) fresh.onclick = function () {
+    if (!window.confirm("Clear " + p.name + "'s record?\n\nLevels, green stars and the money jar " +
+        "go back to zero. The cards already collected are kept. This cannot be undone.")) return;
+    wipeRecord(p);
+    draft = null;
+    save();
+    go("menu");
+  };
+
   const typingIn = document.getElementById("typingIn");
   if (typingIn) typingIn.onchange = function () { draft.typing = typingIn.checked; };
   const unlockIn = document.getElementById("unlockAllIn");
@@ -2886,29 +2948,48 @@ const MODE_META = {
   fruit: { cls:"m-fruit", icon:"🧺", verb:"Drag",     title:"Fruit Basket",  sub:"Drag each fruit into the bag with its sound.",
            how:"Drag every fruit into the bag that matches it — or tap the fruit first, then tap its bag." },
   fish:  { cls:"m-fish",  icon:"🎣", verb:"Catch",    title:"Fishing Pond",  sub:"Catch fish to keep your power up. Fill the quota before it runs out.",
-           how:"Read the card above the pond, then tap the fish carrying the matching answer before it swims away." }
+           how:"Read the card above the pond, then tap the fish carrying the matching answer before it swims away." },
+  listen:{ cls:"m-listen", icon:"🎧", verb:"Listen",  title:"Listening",     sub:"Hear it, then pick it.",
+           how:"Tap the big speaker to hear it — as many times as you like — then tap the answer that matches what you heard." }
 };
 
 // The level decides the game - the player never picks. New kana get the gentler
 // games; review levels rotate through the rest so a level always feels different
 // from the one before it.
-const LEARN_GAMES  = ["match", "pairs", "fruit"];
-const REVIEW_GAMES = ["word", "fish", "fruit", "pairs", "match"];
-const KANJI_GAMES  = ["match", "pairs", "fish", "fruit"];
+const LEARN_GAMES  = ["match", "listen", "pairs", "fruit"];
+const REVIEW_GAMES = ["word", "fish", "listen", "fruit", "pairs", "match"];
+const KANJI_GAMES  = ["match", "listen", "pairs", "fish", "fruit"];
 
 // Walk the whole ladder once so a game is never assigned twice in a row.
 // Can this game actually exercise enough of the level's items to pass it?
 // Only Word Building can fall short: it is limited to the words it can spell.
 function gameFitsLevel(p, game, keys) {
+  if (game === "listen") {
+    // A silent listening level is worse than no listening level. Devices with
+    // no Japanese voice fall back to another game until the clips are aboard.
+    if (!HEARING || !keys.length) return false;
+    const heard = keys.filter(function (k) { return speech.can(k); }).length;
+    return heard >= Math.ceil(keys.length * 0.8);
+  }
   if (game !== "word") return true;
   const list = courseOf(p).words || [];
   if (!list.length) return false;
   const learned = learnedKana(p);
   const reach = {};
   list.forEach(function (x) {
-    if (!x.w.split("").every(function (c) { return learned.indexOf(c) !== -1; })) return;
-    if (courseOf(p).kind === "kana") x.w.split("").forEach(function (c) { reach[c] = 1; });
-    else reach[x.w] = 1;
+    if (courseOf(p).kind === "kana") {
+      // Spelling a word means knowing every kana in it, and what it proves is
+      // that those kana are reachable.
+      if (!x.w.split("").every(function (c) { return learned.indexOf(c) !== -1; })) return;
+      x.w.split("").forEach(function (c) { reach[c] = 1; });
+    } else {
+      // On a vocabulary topic the item IS the word, and its kana are handed to
+      // the player as tiles - there is nothing to have learned first. Asking
+      // whether each character had been introduced as its own item was the bug:
+      // no vocabulary topic ever introduces bare kana, so nothing ever matched
+      // and Word Building quietly vanished from all eight of them.
+      reach[x.w] = 1;
+    }
   });
   const covered = keys.filter(function (k) { return reach[k]; }).length;
   return covered >= Math.ceil(keys.length * 0.8);
@@ -3344,6 +3425,13 @@ function startSession(p, mode) {
   powerInit(p, mode);
 
   if (mode === "match") { session.q = buildQuestion(p); go("match"); }
+  if (mode === "listen") {
+    // Last line of defence: the ladder already checked, but voices can arrive
+    // late, so never open a listening round that cannot make a sound.
+    const sayable = five.filter(function (k) { return speech.can(k); }).length;
+    if (!sayable) { session.mode = "match"; session.q = buildQuestion(p); go("match"); }
+    else { session.q = buildQuestion(p); go("listen"); }
+  }
   if (mode === "pairs") { setupPairs(p); go("pairs"); }
   if (mode === "fruit") { setupFruit(p); go("fruit"); }
   if (mode === "word")  { setupWord(p);  go("word");  }
@@ -3413,11 +3501,14 @@ function stripHTML() {
 function renderMatch(p) {
   const t = tierOf(p);
   const q = session.q;
+  const listening = session.mode === "listen";
   const promptText = showForm(p, q.answer, q.from);
   const promptCls = isJpForm(q.from) ? "" : " romaji";
   const hint = courseOf(p).kind === "grammar" ? (itemOf(p, q.answer).en || "") : "";
   const asSentence = promptText.length > 7;
-  const askLabel = q.to === "en" ? "What does this mean?"
+  const askLabel = listening
+                 ? (q.to === "en" ? "Listen — what does it mean?" : "Listen — which one is it?")
+                 : q.to === "en" ? "What does this mean?"
                  : isJpForm(q.to) ? "Which one is this?"
                  : "What sound is this?";
 
@@ -3443,16 +3534,21 @@ function renderMatch(p) {
       powerHUD() +
       stripHTML() +
       '<div class="sheet stack" style="align-items:center;gap:18px">' +
-        '<span class="eyebrow">' + (hint ? "Fill the gap" : askLabel) + '</span>' +
-        (asSentence
+        '<span class="eyebrow">' + (hint && !listening ? "Fill the gap" : askLabel) + '</span>' +
+        (listening
+          ? '<button class="hearbig" id="cell" aria-label="Play the sound again">' +
+              '<span class="hearbig-icon" aria-hidden="true">🔊</span>' +
+              '<span class="hearbig-label">Play it again</span>' +
+            '</button>'
+          : asSentence
           ? '<div class="sentence pop" id="cell">' + withGap(promptText) + '</div>'
           : '<div class="cell pop" id="cell">' +
               '<span class="cell-glyph' + promptCls + (promptText.length > 4 ? " long" : "") + '">' +
               esc(promptText) + '</span>' +
               (isJpForm(q.from) ? speakerBtn(p, q.answer, q.to).replace('class="say"', 'class="say big cell-say"') : '') +
             '</div>') +
-        (hint ? '<div class="hint">' + esc(hint) + '</div>' : '') +
-        (artOK(q.from) && picFor(q.answer)
+        (hint && !listening ? '<div class="hint">' + esc(hint) + '</div>' : '') +
+        (!listening && artOK(q.from) && picFor(q.answer)
           ? '<div class="prompt-photo">' + picImg(q.answer, "prompt-img") + '</div>' : '') +
       '</div>' +
       answersHTML +
@@ -3460,8 +3556,16 @@ function renderMatch(p) {
     '</div>';
 
   document.getElementById("quit").onclick = function () { finish(p); };
-  // Say the prompt as it appears, wherever hearing it is not the answer.
-  if (isJpForm(q.from)) sayIf(p, q.answer, q.to);
+  if (listening) {
+    // Here the sound is the question, so it always plays and always replays -
+    // the reveal rule that silences a speaker elsewhere does not apply.
+    const hear = document.getElementById("cell");
+    hear.onclick = function () { speech.say(q.answer); };
+    speech.say(q.answer);
+  } else if (isJpForm(q.from)) {
+    // Say the prompt as it appears, wherever hearing it is not the answer.
+    sayIf(p, q.answer, q.to);
+  }
 
   if (q.typing) {
     const form = document.getElementById("typeForm"), input = document.getElementById("typeIn");
@@ -3483,7 +3587,7 @@ function renderMatch(p) {
 function answerMatch(p, chosen, btn) {
   if (session.locked) return;
   const t = tierOf(p), q = session.q;
-  const cell = document.getElementById("cell");
+  const cell = document.getElementById("cell") || { classList: { add: function () {}, remove: function () {} } };
 
   if (chosen === q.answer) {
     session.locked = true;
@@ -5061,6 +5165,12 @@ document.addEventListener("click", function (e) {
       p.money = owed;
     }
   });
+  if (state.resetAt !== RECORDS_RESET) {
+    state.profiles.forEach(wipeRecord);
+    state.resetAt = RECORDS_RESET;
+    save();
+  }
+
   state.activeId = null;
   render();
   photos.start();
