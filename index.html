@@ -284,6 +284,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
   border-radius: 999px; padding: 6px 13px;
   font-weight: 800; font-size: 15px; font-variant-numeric: tabular-nums;
 }
+.stars.green { background: var(--wakakusa-wash); color: var(--wakakusa); }
 
 /* ---------- surfaces & type ---------- */
 .sheet {
@@ -962,8 +963,21 @@ p  { margin: 0; color: var(--ink-soft); line-height: 1.6; }
 .rung.rev { border-style: dashed; }
 .rung.learned { color: var(--wakakusa); border-color: var(--wakakusa); background: var(--wakakusa-wash); }
 .rung.current { color: var(--ai); border-color: var(--ai); background: var(--ai-wash); }
+.rung.perfect { position: relative; border-color: var(--wakakusa); }
+.rung-star {
+  position: absolute; top: -7px; right: -5px; font-size: 11px;
+  color: var(--wakakusa); text-shadow: 0 0 2px var(--paper), 0 0 4px var(--paper);
+}
 
 /* ---------- results ---------- */
+.firsttry { font-size: 13.5px; color: var(--ink-faint); margin: 0; }
+.greencard {
+  display: flex; align-items: center; gap: 12px;
+  border: 1.5px solid var(--wakakusa); background: var(--wakakusa-wash);
+  border-radius: var(--r-lg); padding: 14px 18px; color: var(--ink);
+  font-size: 14.5px; line-height: 1.45;
+}
+.greencard-star { font-size: 28px; color: var(--wakakusa); line-height: 1; }
 .result-num { font-size: 58px; font-weight: 800; line-height: 1; color: var(--wakakusa); font-variant-numeric: tabular-nums; }
 .result-num.short { color: var(--shu); }
 .chips { display: flex; gap: 7px; flex-wrap: wrap; }
@@ -1384,7 +1398,7 @@ const TIERS = {
     modes:["match","pairs","fruit","word"], dakuten:false
   },
   explorer: {
-    label:"Explorer", blurb:"Four choices, both directions, streaks and stars.",
+    label:"Explorer", blurb:"Four choices, both directions, and streaks to chase.",
     choices:4, reverse:0.35, retry:false, roundLen:12,
     power:{ quota:10, drain:4.0, refill:18, penalty:8 },
     modes:["match","pairs","fruit","word","fish"], dakuten:false
@@ -1852,8 +1866,24 @@ function courseOf(p) { return COURSES[p.course] || COURSES.hiragana; }
 
 function prog(p) {
   if (!p.progress) p.progress = {};
-  if (!p.progress[p.course]) p.progress[p.course] = { level: 0, boxes: {} };
+  if (!p.progress[p.course]) p.progress[p.course] = { level: 0, boxes: {}, perfect: {} };
+  if (!p.progress[p.course].perfect) p.progress[p.course].perfect = {};
   return p.progress[p.course];
+}
+
+// Green stars: levels cleared without a single wrong answer. Kept per course
+// and level so the ladder can show which ones were flawless, and summed for
+// the badge in the top bar.
+function perfectSet(p) { return prog(p).perfect; }
+
+function greenStars(p) {
+  let n = 0;
+  const all = (p && p.progress) || {};
+  Object.keys(all).forEach(function (cid) {
+    const per = all[cid] && all[cid].perfect;
+    if (per) n += Object.keys(per).length;
+  });
+  return n;
 }
 
 function unitsOf(p) {
@@ -2003,8 +2033,8 @@ function newProfile(name, face, tier) {
   return {
     id: "p" + Math.floor(Math.random() * 1e9).toString(36) + state.profiles.length,
     name: name, face: face, tier: tier,
-    course: "hiragana", progress: { hiragana: { level: 0, boxes: {} } },
-    stars: 0, typing: false, cards: {}
+    course: "hiragana", progress: { hiragana: { level: 0, boxes: {}, perfect: {} } },
+    typing: false, cards: {}
   };
 }
 
@@ -2154,11 +2184,10 @@ function advanceLevel(p) {
   if (!levelSolid(p)) return null;
   if (at >= ladder.length - 1) {
     // The last level is passable too - that is what finishing a topic means.
-    if (!prog(p).done) { prog(p).done = true; p.stars += 10; }
+    if (!prog(p).done) prog(p).done = true;
     return null;
   }
   prog(p).level = at + 1;
-  p.stars += 5;
   return levelInfo(p);
 }
 
@@ -2222,10 +2251,13 @@ function withGap(text) { return esc(text).replace(/＿/g, '<span class="gap"></s
 // Score a hit that has no item of its own to move (a letter on a vocabulary
 // topic). The round still counts it; only the knowledge model stays out of it.
 function scoreOnly(p) {
+  // No item of its own, so lean on whether anything went wrong since the last
+  // score - the best signal available for a plain letter tile.
+  if (!session.wrongHere) session.firstTry += 1;
+  session.wrongHere = false;
   session.hits += 1;
   session.streak += 1;
   session.best = Math.max(session.best, session.streak);
-  p.stars += 1;
   save();
 }
 
@@ -2505,6 +2537,8 @@ function powerGain(p) {
 }
 
 function powerLose(p) {
+  session.wrongs += 1;
+  session.wrongHere = true;
   session.power = Math.max(0, session.power - session.cfg.penalty);
   drawPower();
   announce("Not that one. Power " + Math.round(session.power) + " percent.");
@@ -2581,7 +2615,8 @@ function renderTopbar() {
     html += '<button class="who" id="toMenu">' +
               '<span class="who-face" aria-hidden="true">' + p.face + '</span>' +
               '<span class="who-name">' + esc(p.name) + '</span></button>' +
-            '<span class="stars" title="Stars earned">★ ' + p.stars + '</span>' +
+            '<span class="stars green" title="Levels cleared without a single mistake">' +
+              '★ ' + greenStars(p) + '</span>' +
             '<button class="purse" id="toWallet" title="Your card collection">' +
               '🃏 <span>' + walletValue(p) + '</span></button>';
   }
@@ -3069,9 +3104,15 @@ function renderMenu(p) {
       ? growing + " of " + learned.length + " are nearly there — come back tomorrow and they can be mastered."
       : done + " of " + learned.length + " mastered so far.";
 
+  const perfect = perfectSet(p);
   const ladder = ladderFor(p).map(function (step, i) {
     const cls = i < lv.index ? "learned" : i === lv.index ? "current" : "";
-    return '<span class="rung ' + cls + (step.kind === "review" ? " rev" : "") + '">' + (i + 1) + '</span>';
+    const flawless = !!perfect[i];
+    return '<span class="rung ' + cls + (step.kind === "review" ? " rev" : "") +
+           (flawless ? " perfect" : "") + '"' +
+           (flawless ? ' title="Cleared without a mistake"' : '') + '>' + (i + 1) +
+           (flawless ? '<span class="rung-star" aria-label="cleared without a mistake">★</span>' : '') +
+           '</span>';
   }).join("");
 
   screenEl.innerHTML =
@@ -3140,6 +3181,7 @@ function startSession(p, mode) {
     mode: mode, level: info, pool: five, levelPool: full, levelUp: null,
     usedThisRound: five.slice(), boards: 0,
     total: 0, hits: 0, streak: 0, best: 0,
+    firstTry: 0, wrongs: 0, wrongHere: false,
     marks: [], missed: {}, locked: false, answeredWrongHere: false,
     q: null, raf: null, powerRaf: null, timer: null
   };
@@ -3156,10 +3198,12 @@ function startSession(p, mode) {
 function credit(p, kana, right) {
   bump(p, kana, right);
   if (right) {
+    // First try means this item had not already been missed in this round.
+    if (!session.missed[kana]) session.firstTry += 1;
+    session.wrongHere = false;
     session.hits += 1;
     session.streak += 1;
     session.best = Math.max(session.best, session.streak);
-    p.stars += 1;
   } else {
     session.streak = 0;
     session.missed[kana] = true;
@@ -3169,7 +3213,17 @@ function credit(p, kana, right) {
 
 function finish(p) {
   stopLoops();
-  if (session) session.levelUp = advanceLevel(p);
+  if (session) {
+    // A green star is for clearing the level with nothing missed. It is tied
+    // to filling the quota rather than to advancing, because advancing also
+    // waits on spaced repetition - a child who played a flawless round should
+    // not be told it did not count.
+    const idx = session.level ? session.level.index : (prog(p).level || 0);
+    session.perfect = !!session.won && session.wrongs === 0;
+    session.perfectNew = session.perfect && !perfectSet(p)[idx];
+    if (session.perfect) perfectSet(p)[idx] = true;
+    session.levelUp = advanceLevel(p);
+  }
   save();
   go("result");
 }
@@ -4060,14 +4114,82 @@ function studiedCards(p) {
    longer price buys better odds, otherwise nobody would ever choose it. */
 let room = null;
 
+// Anything that can carry a question: the collection plus everything the
+// levels have introduced. This is the pool the four options are drawn from.
 function roomPool(p) {
-  return metKeys(p).filter(function (k) { return !!cardFace(p, k).en; });
+  const seen = {};
+  ownedKeys(p).concat(metKeys(p)).forEach(function (k) { seen[k] = 1; });
+  return Object.keys(seen).filter(function (k) { return !!cardFace(p, k).en; });
+}
+
+// Everything the ladder has put in front of the player so far, in this topic:
+// the rows introduced, plus any kanji groups already reached.
+function levelItemsSoFar(p) {
+  const out = [];
+  const rows = allRows(p);
+  const upTo = Math.min(rowsIntroduced(p), rows.length);
+  for (let i = 0; i < upTo; i++) rows[i].keys.forEach(function (k) { out.push(k); });
+  ladderFor(p).slice(0, (prog(p).level || 0) + 1).forEach(function (st) {
+    if (st.kind === "kanji") KANJI_KEYS[st.group].forEach(function (k) { out.push(k); });
+  });
+  return out.filter(function (k) { return !!cardFace(p, k).en; });
+}
+
+const NEW_IN_QUIZ = 2;   // the one or two questions that come from the level
+const QUIZ_FLOOR  = 4;   // fewer than this is not a run, it is a formality
+
+function answerable(p) {
+  return function (k) { return !!cardFace(p, k).en; };
+}
+
+/* How long a run actually is. Once the collection is big the answer is simply
+   the full price; while it is small the run shrinks to fit, so the questions
+   stay ones the child has a card for instead of being padded out with
+   material the collection cannot cover. Same arithmetic as quizKeys, so the
+   number on the door is the number of questions asked. */
+function quizSize(p, want) {
+  const owned = ownedKeys(p).filter(answerable(p)).length;
+  const pool = roomPool(p).length;
+  if (!pool) return 0;
+  const wide = owned ? Math.max(QUIZ_FLOOR, owned + NEW_IN_QUIZ) : want;
+  return Math.min(want, wide, pool);
+}
+
+/* The run is about the cards actually collected - that is what makes a
+   collection worth having - plus a couple drawn from the levels played so
+   far, so it still points at what is being learned right now. With nothing
+   collected yet it falls back to level material, which is the first time
+   through. */
+function quizKeys(p, want) {
+  const ok = answerable(p);
+  const owned = shuffle(ownedKeys(p).filter(ok));
+  const levels = levelItemsSoFar(p);
+  const fresh = shuffle(levels.filter(function (k) { return owned.indexOf(k) === -1; }));
+  const size = quizSize(p, want);
+  const chosen = [];
+  const taken = {};
+  const add = function (k) { if (k && !taken[k] && chosen.length < size) { taken[k] = 1; chosen.push(k); } };
+
+  // One or two from the level. When the collection is too small to cover the
+  // rest, the top-up below quietly restores the second one.
+  if (owned.length) fresh.slice(0, 1 + Math.round(Math.random())).forEach(add);
+  owned.forEach(add);                                            // the collection
+  fresh.forEach(add);                                            // only if short
+  shuffle(levels).forEach(add);
+  shuffle(metKeys(p).filter(ok)).forEach(add);
+  return shuffle(chosen);
 }
 
 // Four is the floor: below it a question cannot be given four honest options.
-function roomCanOpen(p) { return roomPool(p).length >= 4; }
+function roomCanOpen(p) { return roomPool(p).length >= QUIZ_FLOOR; }
 
-function roomCost(p) { return Math.min(QUIZ_LEN.room, roomPool(p).length); }
+function roomCost(p) { return quizSize(p, QUIZ_LEN.room); }
+
+// How a run is put together, for the label on the door.
+function roomMix(p) {
+  return ownedKeys(p).filter(answerable(p)).length
+    ? "from your cards" : "from what you have learned";
+}
 
 function nextRoomQ(p) {
   const pool = roomPool(p);
@@ -4092,13 +4214,10 @@ const QUIZ_LEN = { draw: 5, room: 15 };
 function startQuiz(p, kind) {
   stopLoops();
   const pool = roomPool(p);
-  // Distinct items only - a five or ten question run that repeats itself
-  // stops being a check and starts being a chore. With too little learned to
-  // ask anything fair, the run is empty and the card is simply given, which is
-  // exactly what happens on the first level.
-  const keys = pool.length >= 4
-    ? shuffle(pool).slice(0, Math.min(QUIZ_LEN[kind] || 5, pool.length))
-    : [];
+  // Distinct items only - a run that repeats itself stops being a check and
+  // starts being a chore. With too little to ask anything fair the run is
+  // empty and the card is simply given, which is what happens on level one.
+  const keys = pool.length >= QUIZ_FLOOR ? quizKeys(p, QUIZ_LEN[kind] || 5) : [];
   room = { kind: kind, need: keys.length, keys: keys, idx: 0,
            done: 0, missed: 0, q: null, prize: null };
   if (!room.need) { awardCard(p); }      // nothing to ask yet - this is level 1
@@ -4119,9 +4238,10 @@ function awardCard(p) {
   if (!key) { go("menu"); return; }
   const already = !!cards(p)[key];
   cards(p)[key] = (cards(p)[key] || 0) + 1;
-  const bonus = already ? Math.max(3, Math.round(cardValue(key) / 4)) : (paid ? 5 : 2);
-  p.stars += bonus + (paid && perfect ? 5 : 0);
-  room.prize = { key: key, already: already, perfect: paid && perfect, bonus: bonus };
+  // A second copy is not a dead end: the wallet counts every copy, so a
+  // duplicate still makes the collection worth more.
+  room.prize = { key: key, already: already, perfect: paid && perfect,
+                 gain: cardValue(key) };
   save();
   audio.star();
 }
@@ -4150,9 +4270,9 @@ function renderRoom(p) {
           (speech.can(key) ? speakerBtn(p, key, null) : '') +
           '<p style="text-align:center">' +
             (room.prize.already
-              ? 'You had this one already, so it is worth <strong>+' + room.prize.bonus + ' stars</strong> instead. '
+              ? 'A second copy — still <strong>+' + room.prize.gain + '</strong> to the collection. '
               : '') +
-            (room.prize.perfect ? 'A clean run earned an extra draw and <strong>+5 stars</strong>. ' : '') +
+            (room.prize.perfect ? 'A clean run earned an extra draw. ' : '') +
             'Collection now worth <strong>' + walletValue(p) + '</strong>.</p>' +
         '</div>' +
         '<div class="row">' +
@@ -4219,7 +4339,6 @@ function renderRoom(p) {
         audio.good();
         if (speech.can(q.key)) speech.say(q.key);
         bump(p, q.key, true);          // not credit(): that belongs to a level's session
-        p.stars += 1;
         room.done += 1;
         save();
         if (room.done >= room.need) {
@@ -4276,7 +4395,7 @@ function renderWallet(p) {
       '<div class="row">' +
         (roomCanOpen(p)
           ? '<button class="btn btn-primary" id="wRoom">🃏 Card Room — ' + roomCost(p) +
-            ' questions for a card</button>'
+            ' questions ' + roomMix(p) + '</button>'
           : '') +
         '<button class="btn btn-ghost" id="wBack">Back</button>' +
       '</div>' +
@@ -4320,7 +4439,21 @@ function renderResult(p) {
               return '<span class="chip"><span class="k">' + esc(k) + '</span></span>'; }).join("") + '</div>'
           : '') +
         '<p>' + praise + (s.best > 2 ? " Best streak: " + s.best + "." : "") + '</p>' +
+        (s.hits
+          ? '<p class="firsttry"><strong>' + (s.firstTry || 0) + ' of ' + s.hits +
+            '</strong> right on the first try.' +
+            (s.wrongs ? ' ' + s.wrongs + ' wrong answer' + (s.wrongs > 1 ? 's' : '') +
+                        ' along the way.' : '') + '</p>'
+          : '') +
       '</div>' +
+      (s.perfect
+        ? '<div class="greencard">' +
+            '<span class="greencard-star" aria-hidden="true">★</span>' +
+            '<span><strong>' + (s.perfectNew ? "Green star earned" : "Flawless again") +
+              '</strong> — ' + (s.level ? s.level.label : "this level") +
+              ' cleared without a single mistake.</span>' +
+          '</div>'
+        : '') +
       (weak.length
         ? '<div class="sheet stack"><span class="eyebrow">Worth another look</span>' +
           '<div class="chips">' + weak.map(function (k) {
@@ -4619,8 +4752,11 @@ document.addEventListener("click", function (e) {
     });
     delete p.unlocked; delete p.lastKind; delete p.level;
     prog(p).level = Math.max(0, Math.min(prog(p).level, ladderFor(p).length - 1));
-    p.stars = p.stars || 0;
+    delete p.stars;                       // the points counter is gone
     if (!p.cards) p.cards = {};
+    Object.keys(p.progress).forEach(function (cid) {
+      if (!p.progress[cid].perfect) p.progress[cid].perfect = {};
+    });
   });
   state.activeId = null;
   render();
