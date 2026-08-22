@@ -154,20 +154,22 @@ real interface, with the game's own difficulty maths simulated against realistic
 speeds.</p>
 
 <div class="verdict">
-  <p><strong>The short version.</strong> The game is in good shape: onboarding takes four taps,
-  progress saves reliably, the twelve topics all work, and the new illustrations land well. Nothing
-  is broken in a way that stops play.</p>
-  <p>But three things would frustrate a real child, and they are all in the <em>reward</em> layer
-  rather than the content. The most serious is that <strong>Memory Pairs actively damages the
-  learning model</strong> — forgetting where a card is demotes a kana the child already knows.
-  Second, <strong>the Ninja tier is close to unwinnable</strong> at a realistic answering pace.
-  Third, <strong>the result screen contradicts itself</strong>, telling a child they passed when
-  they did not advance, and congratulating them on a level-up in the same breath as "power ran
-  out".</p>
+  <p><strong>The short version.</strong> The foundations are good: onboarding takes four taps,
+  progress saves reliably, all twelve topics work, and the new illustrations land well.</p>
+  <p>The playtest found <strong>one genuinely serious bug, which I fixed</strong>: on a phone or
+  tablet the hosted game was laying itself out at desktop width and shrinking the whole thing to
+  about 38%. Every piece of responsive design was inert and every button was rendering at roughly
+  a quarter of its intended size — on the devices your children are most likely to use.</p>
+  <p>Beyond that, three things would frustrate a real child, and all three live in the
+  <em>reward</em> layer rather than the content. The most serious is that <strong>Memory Pairs
+  actively damages the learning model</strong> — forgetting where a card is demotes a kana the child
+  already knows. Then <strong>the Ninja tier is close to unwinnable</strong> at a realistic
+  answering pace. And <strong>the result screen contradicts itself</strong>, telling a child they
+  passed when they did not advance.</p>
 </div>
 
 <div class="grid2">
-  <div class="stat good"><b>4 taps</b><span>cold start to playing</span></div>
+  <div class="stat good"><b>981 → 375</b><span>phone layout width, after the fix</span></div>
   <div class="stat good"><b>246 B</b><span>saves and restores perfectly</span></div>
   <div class="stat warn"><b>~36 min</b><span>to "finish" hiragana…</span></div>
   <div class="stat bad"><b>59%</b><span>…with only this much mastered</span></div>
@@ -217,7 +219,34 @@ at 5 of 10 — turned out to be my test harness, not the game; it re-deals corre
 <h2>Findings, ranked by what a child would feel</h2>
 
 <div class="finding critical">
-  <div class="head"><span class="chip critical">Critical</span><h3>1. Memory Pairs corrupts the learning data</h3></div>
+  <div class="head"><span class="chip critical">Critical</span><span class="chip good">Fixed</span><h3>1. On a phone or tablet, the whole game was being shrunk to 38%</h3></div>
+  <p>The hosted build is a bare HTML fragment, so the browser constructs its own
+  <code>&lt;head&gt;</code> — and that generated head carries no viewport rule. Without one, a
+  mobile browser lays the page out at a notional ~980&nbsp;px and then scales the result down to
+  fit the screen.</p>
+  <dl>
+    <dt>Evidence</dt><dd>Measured on the live site at a 375&nbsp;px device width:
+      <code>documentElement.clientWidth</code> was <strong>981</strong>, and
+      <em>every</em> mobile breakpoint — <code>max-width:430</code>, <code>460</code>,
+      <code>520</code> — evaluated <strong>false</strong>.</dd>
+    <dt>Why it matters</dt><dd>All the responsive work was dead on the devices that matter most:
+      the single-column answer grid, the three-across bag row, the reflowing pairs grid. A 68&nbsp;px
+      answer tile was reaching a child's thumb at about 26&nbsp;px. This is the primary way your
+      children will play, and it was the least-tested path.</dd>
+    <dt>My mistake</dt><dd>Earlier in the build I saw a mobile resize still report 980&nbsp;px and
+      wrote it off as a quirk of the preview pane. It was this bug, in plain sight. It took an
+      independent reviewer looking at the served HTML to catch it.</dd>
+    <dt>Fix</dt><dd>Applied and deployed: a <code>viewport</code> meta tag (plus
+      <code>color-scheme</code> and a description). Re-measured after deploying — layout viewport
+      <strong>375&nbsp;px</strong>, all breakpoints active, answer tiles now real
+      <strong>167×68</strong> targets, no horizontal scroll.</dd>
+    <dt>Note</dt><dd>The Artifact copy supplies its own document head, so it was likely unaffected;
+      the hosted site definitely was.</dd>
+  </dl>
+</div>
+
+<div class="finding critical">
+  <div class="head"><span class="chip critical">Critical</span><h3>2. Memory Pairs corrupts the learning data</h3></div>
   <p>When two flipped cards do not match, the game calls <code>credit(p, kana, false)</code> — the
   same "you got this wrong" path used everywhere else. But a mismatch in a memory game is a slip
   about <em>where a card is</em>, not a failure to know the character.</p>
@@ -239,7 +268,7 @@ at 5 of 10 — turned out to be my test harness, not the game; it re-deals corre
 </div>
 
 <div class="finding critical">
-  <div class="head"><span class="chip critical">Critical</span><h3>2. The result screen contradicts itself</h3></div>
+  <div class="head"><span class="chip critical">Critical</span><h3>3. The result screen contradicts itself</h3></div>
   <p>Winning a round and advancing a level are two independent systems, but they are presented as
   one message.</p>
   <dl>
@@ -258,7 +287,7 @@ at 5 of 10 — turned out to be my test harness, not the game; it re-deals corre
 </div>
 
 <div class="finding major">
-  <div class="head"><span class="chip major">Major</span><h3>3. Ninja is close to unwinnable</h3></div>
+  <div class="head"><span class="chip major">Major</span><h3>4. Ninja is close to unwinnable</h3></div>
   <p>Ninja stacks a bigger quota (14), a faster drain (5.2/s), a smaller refill (15) and a harsher
   penalty (−12). Those compound.</p>
   <div class="tablewrap">
@@ -287,7 +316,7 @@ at 5 of 10 — turned out to be my test harness, not the game; it re-deals corre
 </div>
 
 <div class="finding major">
-  <div class="head"><span class="chip major">Major</span><h3>4. Fishing Pond is the odd one out in every tier</h3></div>
+  <div class="head"><span class="chip major">Major</span><h3>5. Fishing Pond is the odd one out in every tier</h3></div>
   <p>Fishing is the only game at a 1.0× drain multiplier; the others sit at 0.55–0.75×. On top of
   that it is the only game where you must also <em>track and hit a moving target</em>, a cost the
   simulation does not even capture.</p>
@@ -304,7 +333,7 @@ at 5 of 10 — turned out to be my test harness, not the game; it re-deals corre
 </div>
 
 <div class="finding major">
-  <div class="head"><span class="chip major">Major</span><h3>5. Finishing a topic does not mean knowing it — and nothing says so</h3></div>
+  <div class="head"><span class="chip major">Major</span><h3>6. Finishing a topic does not mean knowing it — and nothing says so</h3></div>
   <p>A level advances when 80% of its items reach box 2. The garden calls an item mastered at box 4.
   Those two bars are far apart, and only one of them gates progress.</p>
   <div class="grid2">
@@ -326,7 +355,7 @@ at 5 of 10 — turned out to be my test harness, not the game; it re-deals corre
 </div>
 
 <div class="finding minor">
-  <div class="head"><span class="chip minor">Minor</span><h3>6. Match punishes a retry that Fruit Basket rewards</h3></div>
+  <div class="head"><span class="chip minor">Minor</span><h3>7. Match punishes a retry that Fruit Basket rewards</h3></div>
   <p>In Match, answering wrongly and then correctly gives <strong>no score and no power</strong> —
   the code runs <code>bump()</code> but never <code>powerGain()</code>. In Fruit Basket the same
   sequence awards both.</p>
@@ -345,7 +374,7 @@ at 5 of 10 — turned out to be my test harness, not the game; it re-deals corre
 </div>
 
 <div class="finding minor">
-  <div class="head"><span class="chip minor">Minor</span><h3>7. Two hours of kana before the fun topics open</h3></div>
+  <div class="head"><span class="chip minor">Minor</span><h3>8. Two hours of kana before the fun topics open</h3></div>
   <p>Topics unlock strictly in order, so Animals — the topic with the best illustrations and the most
   obvious appeal to a young child — sits behind Hiragana, Katakana and Kana Mix.</p>
   <dl>
@@ -361,10 +390,11 @@ at 5 of 10 — turned out to be my test harness, not the game; it re-deals corre
 </div>
 
 <div class="finding minor">
-  <div class="head"><span class="chip minor">Minor</span><h3>8. Accessibility gaps worth an hour</h3></div>
+  <div class="head"><span class="chip minor">Minor</span><h3>9. Accessibility gaps worth an hour</h3></div>
   <ul class="tight">
     <li><strong>No <code>lang</code> attribute.</strong> Assistive tech does not know the page is
-      part-Japanese, so kana get read with an English voice.</li>
+      part-Japanese, so kana get read with an English voice. (A <code>color-scheme</code> hint went
+      in with the viewport fix; <code>lang</code> still wants adding.)</li>
     <li><strong>No live region.</strong> Score and power changes are never announced — a
       screen-reader user has no idea the clock is draining.</li>
     <li><strong>Right and wrong are signalled by colour</strong> (green/red) plus a shake, with no

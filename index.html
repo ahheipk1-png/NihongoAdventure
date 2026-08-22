@@ -602,7 +602,10 @@ p  { margin: 0; color: var(--ink-soft); line-height: 1.6; }
   font-size: 22px; opacity: .75;
 }
 :root[data-theme="dark"] .card::after { color: rgba(8,19,28,.45); }
-.card.up, .card.done { background: var(--paper); color: var(--ink); }
+.card.up, .card.done, .card.open { background: var(--paper); color: var(--ink); }
+.card.open { border-color: var(--rule); }
+.card.open::after, .card.up::after, .card.done::after { content: none; }
+.pair-hint { text-align: center; font-size: 13.5px; font-weight: 600; color: var(--ink-soft); margin: 0; }
 .card.up::after, .card.done::after { content: none; }
 .card.kana { font-family: var(--font-kana); font-size: 30px; font-weight: 700; }
 .card.up { border-color: var(--ai); transform: scale(1.03); }
@@ -818,19 +821,6 @@ p  { margin: 0; color: var(--ink-soft); line-height: 1.6; }
   width: min(620px, 100%); max-height: 84vh; overflow-y: auto;
   padding: 20px; display: flex; flex-direction: column; gap: 13px;
 }
-
-/* ---------- memory peek ---------- */
-.peek {
-  display: flex; align-items: center; gap: 12px;
-  border: 2px solid var(--ai); background: var(--ai-wash);
-  border-radius: var(--r-md); padding: 12px 14px;
-}
-.peek-text { font-weight: 800; font-size: 14.5px; color: var(--ai); flex: 1 1 auto; }
-.peek-count {
-  font-weight: 800; font-size: 22px; color: var(--ai);
-  font-variant-numeric: tabular-nums; min-width: 30px; text-align: center;
-}
-.card.peeking { cursor: default; }
 
 /* ---------- kana garden ---------- */
 .garden-sheet { overflow-x: auto; }
@@ -2385,8 +2375,8 @@ const MODE_META = {
            how:"A big card shows one thing. Tap the answer below that matches it." },
   word:  { cls:"m-word",  icon:"🏮", verb:"Spell",    title:"Word Building", sub:"Spell the word in the picture.", minRows:2,
            how:"Tap or drag the letters into the boxes to spell the word. Two letters are tricksters that fit nowhere." },
-  pairs: { cls:"m-pairs", icon:"🎴", verb:"Remember", title:"Memory Pairs",  sub:"Flip cards and find the kana with its sound.",
-           how:"You get ten seconds to study the cards. Then they flip over — find the matching pairs from memory." },
+  pairs: { cls:"m-pairs", icon:"🎴", verb:"Pair up", title:"Pair Up",  sub:"Match every card with its partner.",
+           how:"One side of every pair is already face up. Tap a hidden card to see it, then tap the card it belongs with." },
   fruit: { cls:"m-fruit", icon:"🧺", verb:"Drag",     title:"Fruit Basket",  sub:"Drag each fruit into the bag with its sound.",
            how:"Drag every fruit into the bag that matches it — or tap the fruit first, then tap its bag." },
   fish:  { cls:"m-fish",  icon:"🎣", verb:"Catch",    title:"Fishing Pond",  sub:"Catch fish to keep your power up. Fill the quota before it runs out.",
@@ -2550,7 +2540,7 @@ function closeStudyOverlay() {
   if (el && el.parentNode) el.parentNode.removeChild(el);
   if (session) {
     session.studyOpen = false;
-    session.paused = !!session.preview;   // stay paused if the pairs peek is still up
+    session.paused = false;
   }
 }
 
@@ -2820,71 +2810,41 @@ function setupPairs(p) {
   const fm = pickForms(p);
   session.fromForm = fm.from;
   session.toForm = fm.to;
+  // The Japanese side stays open all round. That keeps the script in front of
+  // the learner the whole time and makes the task "which meaning goes with
+  // this word", not "where did that card go".
   const cards = [];
   session.pool.forEach(function (k, i) {
-    cards.push({ id:"k" + i, kana:k, kind:"front" });
-    cards.push({ id:"r" + i, kana:k, kind:"back" });
+    cards.push({ id:"k" + i, kana:k, kind:"front", open: true });
+    cards.push({ id:"r" + i, kana:k, kind:"back",  open: false });
   });
   session.cards = shuffle(cards);
   session.up = [];
   session.boardMatched = 0;
   session.boardPairs = session.pool.length;
   session.boards += 1;
-  startPeek(p);
-}
-
-// Ten seconds to study a fresh board before it turns over. The power clock
-// holds while the player reads.
-function startPeek(p) {
-  session.preview = true;
-  session.previewLeft = 10;
-  session.paused = true;
-}
-
-// Armed from the render, not from setup: go() runs stopLoops() on its way in
-// and would clear an interval started any earlier.
-function armPeek(p) {
-  if (!session.preview || session.timer) return;
-  session.timer = setInterval(function () {
-    if (!session || session.ended || !session.preview) {
-      clearInterval(session.timer); session.timer = null; return;
-    }
-    if (session.studyOpen) return;
-    session.previewLeft -= 1;
-    if (session.previewLeft <= 0) { endPeek(p); return; }
-    const el = document.getElementById("peekCount");
-    if (el) el.textContent = session.previewLeft;
-  }, 1000);
-}
-
-function endPeek(p) {
-  if (session.timer) { clearInterval(session.timer); session.timer = null; }
-  session.preview = false;
-  session.previewLeft = 0;
-  session.paused = false;
-  if (screen === "pairs") renderPairs(p);
 }
 
 function renderPairs(p) {
-  const peeking = !!session.preview;
-  // Vocabulary faces need a roomier grid than single kana do.
   const longFace = session.cards.some(function (c) {
     const fm = c.kind === "front" ? session.fromForm : session.toForm;
     return showForm(p, c.kana, fm).length > 4;
   });
+  const chosen = session.up;
   const cards = session.cards.map(function (c, i) {
     const form = c.kind === "front" ? session.fromForm : session.toForm;
     const face = showForm(p, c.kana, form);
-    const isUp = peeking || session.up.indexOf(i) !== -1;
+    const picked = chosen.indexOf(i) !== -1;
+    const shown = c.open || picked || c.done;
     const cls = "card " + formClass(form) + (face.length > 5 ? " long" : "") +
-                (c.done ? " done" : isUp ? " up" : "") + (peeking ? " peeking" : "");
-    // Showing the picture on the Japanese side turns the pair into
-    // word-to-meaning-to-image, which is what actually fixes vocabulary.
-    const art = (c.kind === "front" && (isUp || c.done)) ? picFor(c.kana) : null;
+                (c.done ? " done" : picked ? " up" : c.open ? " open" : "");
+    // The picture rides on the Japanese side, so word, meaning and image all
+    // come together on a correct pair.
+    const art = (c.kind === "front" && shown) ? picFor(c.kana) : null;
     return '<button class="' + cls + (art ? " arted" : "") + '" data-i="' + i + '"' +
-           ((c.done || peeking) ? " disabled" : "") + '>' +
+           (c.done ? " disabled" : "") + '>' +
            (art ? picImg(c.kana, "card-img") : "") +
-           ((isUp || c.done) ? '<span class="card-face">' + esc(face) + '</span>' : "") +
+           (shown ? '<span class="card-face">' + esc(face) + '</span>' : "") +
            '</button>';
   }).join("");
 
@@ -2893,13 +2853,9 @@ function renderPairs(p) {
       unlockBanner() +
       '<div class="row">' + boardTag() + '</div>' +
       powerHUD() +
-      (peeking
-        ? '<div class="peek">' +
-            '<span class="peek-text">Remember where they are…</span>' +
-            '<span class="peek-count" id="peekCount">' + session.previewLeft + '</span>' +
-            '<button class="btn btn-sm btn-primary" id="peekGo">Ready</button>' +
-          '</div>'
-        : '') +
+      '<p class="pair-hint">' +
+        (chosen.length ? 'Now tap the one it goes with.' : 'Tap a hidden card, then tap its partner.') +
+      '</p>' +
       '<div class="pairgrid' + (longFace ? " wide" : "") + '">' + cards + '</div>' +
       '<div class="row"><button class="btn btn-sm" id="learnBtn">📖 Learn · restarts</button><button class="btn btn-ghost btn-sm" id="quit">End round</button></div>' +
     '</div>';
@@ -2907,16 +2863,21 @@ function renderPairs(p) {
   screenEl.querySelectorAll("[data-i]").forEach(function (b) {
     b.onclick = function () { flip(p, parseInt(b.getAttribute("data-i"), 10)); };
   });
-  const go = document.getElementById("peekGo");
-  if (go) go.onclick = function () { endPeek(p); };
   document.getElementById("quit").onclick = function () { finish(p); };
-  if (peeking) armPeek(p);
 }
 
 function flip(p, i) {
-  if (session.locked || session.preview) return;
+  if (session.locked) return;
   const card = session.cards[i];
   if (card.done || session.up.indexOf(i) !== -1) return;
+
+  // Tapping two cards of the same side is not an answer, it is a change of
+  // mind - move the selection rather than scoring it as a miss.
+  if (session.up.length === 1 && session.cards[session.up[0]].kind === card.kind) {
+    session.up = [i];
+    renderPairs(p);
+    return;
+  }
 
   session.up.push(i);
   renderPairs(p);
@@ -2943,7 +2904,8 @@ function flip(p, i) {
     }, 480);
   } else {
     audio.bad();
-    credit(p, a.kana, false);
+    const tested = a.open ? b : a;      // the hidden card is the one being identified
+    credit(p, tested.kana, false);
     powerLose(p);
     setTimeout(function () { session.up = []; session.locked = false; renderPairs(p); }, 900);
   }
