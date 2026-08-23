@@ -478,6 +478,42 @@ button.board-tag.leave:focus-visible { outline: 2.5px solid var(--ai); outline-o
   box-shadow: var(--shadow);
 }
 .drawcard.reveal { animation: settle .5s cubic-bezier(.2,1.3,.4,1) both; }
+.wheel-wrap { position: relative; width: min(300px, 80vw); aspect-ratio: 1; margin-top: 8px; }
+.wheel {
+  position: absolute; inset: 0; border-radius: 50%;
+  border: 5px solid var(--paper);
+  box-shadow: 0 0 0 3px var(--rule-strong), var(--shadow);
+  will-change: transform;
+}
+.wheel.spinning { animation: wheelspin 1300ms linear infinite; }
+.wheel.settling { transition: transform 1.4s cubic-bezier(.15,.85,.2,1); }
+@keyframes wheelspin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.wheel-slot { position: absolute; inset: 0; display: flex; justify-content: center; pointer-events: none; }
+.wheel-slot-in {
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  margin-top: 11%; color: var(--ink); text-shadow: 0 1px 0 rgba(255,255,255,.5);
+}
+.wheel-jp  { font-family: var(--font-kana); font-weight: 800; font-size: 17px; line-height: 1; }
+.wheel-jp.long { font-size: 12px; }
+.wheel-val { font-size: 11px; font-weight: 800; opacity: .8; }
+.wheel-pin {
+  position: absolute; top: -13px; left: 50%; transform: translateX(-50%);
+  border-left: 11px solid transparent; border-right: 11px solid transparent;
+  border-top: 20px solid var(--shu); z-index: 3;
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,.25));
+}
+.wheel-hub {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+  width: 54px; height: 54px; border-radius: 50%; background: var(--paper);
+  border: 3px solid var(--rule-strong); display: grid; place-items: center;
+  font-size: 22px; z-index: 2;
+}
+.wheel-stop { min-width: 148px; font-size: 17px; letter-spacing: .06em; }
+:root { --wheel-common: #e8e2d4; --wheel-rare: #cfe0f2; --wheel-epic: #f7e3ae; --wheel-legendary: #f6c9bf; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --wheel-common: #3a3a44; --wheel-rare: #22364f; --wheel-epic: #4a3d16; --wheel-legendary: #4a2420; }
+}
+:root[data-theme="dark"] { --wheel-common: #3a3a44; --wheel-rare: #22364f; --wheel-epic: #4a3d16; --wheel-legendary: #4a2420; }
 .drawcard.common    { border-color: var(--rule-strong); }
 .drawcard.rare      { border-color: var(--ai); }
 .drawcard.epic      { border-color: var(--yamabuki); box-shadow: 0 0 0 4px var(--yamabuki-wash), var(--shadow); }
@@ -1863,6 +1899,18 @@ function cardCount(p) {
    by side in the top bar only invites the question of which one is real. */
 function netWorth(p) { return money(p) + walletValue(p); }
 
+/* What can actually be spent. Everything the player is worth, less what has
+   already gone on tips and the map. Cards are never taken away - buying draws
+   the number down, the collection stays. */
+function spent(p)   { return (p && typeof p.spent === "number" && isFinite(p.spent)) ? p.spent : 0; }
+function balance(p) { return netWorth(p) - spent(p); }
+function pay(p, n) {
+  if (balance(p) < n) return false;
+  p.spent = spent(p) + n;
+  save();
+  return true;
+}
+
 function walletValue(p) {
   return ownedKeys(p).reduce(function (n, k) { return n + cardValue(k) * cards(p)[k]; }, 0);
 }
@@ -2123,6 +2171,9 @@ function wipeRecord(p) {
   p.progress = { hiragana: { level: 0, boxes: {}, perfect: {} } };
   p.course = "hiragana";
   p.money = 0;
+  p.spent = 0;
+  p.landmarks = {};      // bought with score money, so a fresh start clears them
+  p.setsPaid = {};       // re-paid by the boot check for any set still complete
 }
 
 /* Bumping this string clears every player's record once, on their next load.
@@ -2135,7 +2186,7 @@ function newProfile(name, face, tier) {
     id: "p" + Math.floor(Math.random() * 1e9).toString(36) + state.profiles.length,
     name: name, face: face, tier: tier,
     course: "hiragana", progress: { hiragana: { level: 0, boxes: {}, perfect: {} } },
-    typing: false, cards: {}, money: 0
+    typing: false, cards: {}, money: 0, spent: 0, landmarks: {}, setsPaid: {}
   };
 }
 
@@ -2751,8 +2802,8 @@ function renderTopbar() {
               '<span class="who-name">' + esc(p.name) + '</span></button>' +
             '<span class="stars green" title="Levels cleared without a single mistake">' +
               '★ ' + greenStars(p) + '</span>' +
-            '<span class="stars" title="Everything you are worth — green star money plus the value of your cards">' +
-              cash(netWorth(p)) + '</span>' +
+            '<span class="stars" title="What you can spend — green-star money, set bonuses and card value, minus what you have bought">' +
+              cash(balance(p)) + '</span>' +
             '<button class="purse" id="toWallet" title="Cards collected — tap to open your wallet">' +
               '🃏 <span>' + cardCount(p) + '</span></button>';
   }
@@ -4587,21 +4638,72 @@ function livesDots(r) {
   return out;
 }
 
-function awardCard(p) {
+const WHEEL_SLICES = 6;      // six is readable on a phone; eight is a blur
+
+/* The cards that go on the wheel. Drawing several and showing them all is what
+   turns a hidden roll into something a child can see the shape of: they can
+   read the prices before they stop it. A clean run draws extra candidates and
+   keeps the dearest, so playing well visibly improves the wheel rather than
+   silently improving a number. */
+function wheelKeys(p) {
   const paid = room.kind === "room";
   const perfect = room.missed === 0 && !room.restarts && room.need > 0;
-  const tries = [drawCard(p, { preferNew: paid }), drawCard(p, { preferNew: paid })];
-  if (paid && perfect) tries.push(drawCard(p, { preferNew: true }));
-  const key = tries.filter(Boolean).sort(function (x, y) {
-    return cardValue(y) - cardValue(x);
-  })[0];
-  if (!key) { go("menu"); return; }
+  const seen = {}, keys = [];
+  const add = function (k) { if (k && !seen[k]) { seen[k] = 1; keys.push(k); } };
+  for (let i = 0; i < 60 && keys.length < WHEEL_SLICES; i++) add(drawCard(p, { preferNew: paid }));
+  if (perfect) {
+    for (let i = 0; i < 30 && keys.length < WHEEL_SLICES + 3; i++) add(drawCard(p, { preferNew: true }));
+    keys.sort(function (x, y) { return cardValue(y) - cardValue(x); });
+    keys.length = Math.min(keys.length, WHEEL_SLICES);
+  }
+  // A small pool repeats what it has rather than showing a gap.
+  const n0 = keys.length;
+  while (n0 && keys.length < WHEEL_SLICES) keys.push(keys[keys.length % n0]);
+  return shuffle(keys);
+}
+
+// Questions are over: bring out the wheel. Nothing is granted until it stops.
+function awardCard(p) {
+  const keys = wheelKeys(p);
+  if (!keys.length) { go("menu"); return; }
+  room.wheel = {
+    keys: keys,
+    perfect: room.kind === "room" && room.missed === 0 && !room.restarts && room.need > 0,
+    stopping: false, landed: null,
+    step: 0, ticker: null          // the reduced-motion wheel steps instead of spinning
+  };
+}
+
+/* The angle the wheel is actually drawn at. Reading the rendered transform,
+   rather than a clock, means the outcome is the picture the child stopped -
+   a re-render restarts the CSS animation but not any clock, so the two drift. */
+function wheelAngle(el) {
+  const m = el ? getComputedStyle(el).transform : "";
+  const v = m && m.match(/matrix\(([^)]+)\)/);
+  if (!v) return 0;
+  const a = v[1].split(",").map(parseFloat);
+  let deg = Math.atan2(a[1], a[0]) * 180 / Math.PI;
+  if (deg < 0) deg += 360;
+  return deg;
+}
+
+// Which slice sits under a pin fixed at the top when the wheel has turned `deg`
+// clockwise: the slice whose own angle is 360 - deg.
+function wheelIndexAt(deg) {
+  const slice = 360 / WHEEL_SLICES;
+  return Math.floor(((360 - (deg % 360)) % 360) / slice) % WHEEL_SLICES;
+}
+
+// The card actually joins the collection here, once the wheel has stopped.
+function landCard(p, key) {
   const already = !!cards(p)[key];
   cards(p)[key] = (cards(p)[key] || 0) + 1;
   // A second copy is not a dead end: the wallet counts every copy, so a
   // duplicate still makes the collection worth more.
-  room.prize = { key: key, already: already, perfect: paid && perfect,
+  room.prize = { key: key, already: already,
+                 perfect: !!(room.wheel && room.wheel.perfect),
                  gain: cardValue(key) };
+  room.wheel = null;
   save();
   renderTopbar();          // the badges are about to be read against the prize
   audio.star();
@@ -4635,6 +4737,98 @@ function renderRoom(p) {
   }
 
   // the prize screen
+  /* The wheel. It spins under its own CSS animation until the child stops it;
+     the tap picks the slice, and the settle only turns the wheel to face what
+     was already decided. */
+  if (room.wheel) {
+    const w = room.wheel;
+    const runId = room.id;
+    const slice = 360 / WHEEL_SLICES;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const stops = [], labels = [];
+    w.keys.forEach(function (k, i) {
+      const v = cardValue(k), rar = cardRarity(v), jp = cardFace(p, k).jp;
+      stops.push('var(--wheel-' + rar + ') ' + (i * slice) + 'deg ' + ((i + 1) * slice) + 'deg');
+      labels.push('<span class="wheel-slot" style="transform:rotate(' + (i * slice + slice / 2) + 'deg)">' +
+                    '<span class="wheel-slot-in">' +
+                      '<span class="wheel-jp' + (jp.length > 3 ? ' long' : '') + '">' + esc(jp) + '</span>' +
+                      '<span class="wheel-val">' + cash(v) + '</span>' +
+                    '</span></span>');
+    });
+
+    screenEl.innerHTML =
+      '<div class="stack">' +
+        '<div class="sheet stack" style="align-items:center;gap:14px">' +
+          '<span class="eyebrow">' +
+            (room.need
+              ? (room.done >= room.need ? room.need + ' questions answered'
+                                        : room.done + ' of ' + room.need + ' answered')
+              : 'Level passed') +
+            (w.perfect ? ' · not one missed' : '') + '</span>' +
+          '<h2 style="text-align:center">🎡 Stop the wheel</h2>' +
+          '<p style="text-align:center;font-size:13px;margin:0">' +
+            'Six cards, six prices. Tap <b>STOP</b> and you keep whatever the pin lands on.' +
+            (w.perfect ? ' A clean run put dearer cards on it.' : '') + '</p>' +
+          '<div class="wheel-wrap">' +
+            '<span class="wheel-pin" aria-hidden="true"></span>' +
+            '<div class="wheel' + (w.stopping ? ' settling' : (reduce ? '' : ' spinning')) + '" id="wheel" ' +
+              'style="background:conic-gradient(' + stops.join(",") + ')">' +
+              labels.join("") +
+            '</div>' +
+            '<span class="wheel-hub" aria-hidden="true">🃏</span>' +
+          '</div>' +
+          '<button class="btn btn-primary wheel-stop" id="wheelStop"' +
+            (w.stopping ? ' disabled' : '') + '>' +
+            (w.stopping ? 'Slowing…' : 'STOP') + '</button>' +
+        '</div>' +
+      '</div>';
+
+    const el = document.getElementById("wheel");
+
+    // Reduced motion: the CSS animation is clamped to nothing, so step the
+    // wheel by hand - one slice at a time - and take the index from the step.
+    if (reduce && !w.stopping && el) {
+      if (w.ticker) clearInterval(w.ticker);
+      w.ticker = setInterval(function () {
+        if (!(screen === "room" && room && room.wheel === w)) { clearInterval(w.ticker); w.ticker = null; return; }
+        w.step = (w.step + 1) % WHEEL_SLICES;
+        const node = document.getElementById("wheel");
+        if (node) node.style.transform = "rotate(" + (w.step * slice) + "deg)";
+      }, 450);
+    }
+
+    if (!w.stopping) {
+      document.getElementById("wheelStop").onclick = function () {
+        audio.prime();
+        let cur;
+        if (w.ticker) { clearInterval(w.ticker); w.ticker = null; cur = (w.step * slice) % 360; }
+        else cur = wheelAngle(el);
+        const idx = wheelIndexAt(cur);
+        const key = w.keys[idx];
+        w.stopping = true;
+        w.landed = key;
+        const btn = document.getElementById("wheelStop");
+        if (btn) { btn.disabled = true; btn.textContent = "Slowing…"; }
+        if (el) {
+          // Freeze at the angle it is really at, then ease two more turns
+          // round to the won slice - no snap back to zero on the way.
+          el.style.transform = "rotate(" + cur + "deg)";
+          el.classList.remove("spinning");
+          void el.offsetWidth;
+          el.classList.add("settling");
+          const target = cur + ((360 - ((cur + idx * slice + slice / 2) % 360)) % 360) + 720;
+          el.style.transform = "rotate(" + target + "deg)";
+        }
+        setTimeout(function () {
+          if (!(screen === "room" && room && room.id === runId && room.wheel === w)) return;
+          landCard(p, key);
+          renderRoom(p);
+        }, 1500);
+      };
+    }
+    return;
+  }
+
   if (room.prize) {
     const key = room.prize.key, face = cardFace(p, key);
     const val = cardValue(key), rar = cardRarity(val);
@@ -4662,7 +4856,7 @@ function renderRoom(p) {
               ? 'A second copy — still <strong>+' + room.prize.gain + '</strong> to the collection. '
               : '') +
             (room.prize.perfect ? 'A clean run earned an extra draw. ' : '') +
-            'Worth <strong>' + cash(netWorth(p)) + '</strong> altogether now.</p>' +
+            '<strong>' + cash(balance(p)) + '</strong> to spend now.</p>' +
         '</div>' +
         '<div class="row">' +
           (roomCanOpen(p)
@@ -4824,10 +5018,12 @@ function renderWallet(p) {
     '<div class="stack">' +
       '<div class="sheet stack">' +
         '<span class="eyebrow">' + esc(p.name) + '’s wallet</span>' +
-        '<h2>' + cash(netWorth(p)) + ' altogether</h2>' +
+        '<h2>' + cash(balance(p)) + ' to spend</h2>' +
         '<p><strong>' + cash(money(p)) + '</strong> from ' + greenStars(p) + ' green star' +
           (greenStars(p) === 1 ? '' : 's') + ' — each pays 1000 times its level number — ' +
-          'and <strong>' + cash(walletValue(p)) + '</strong> held in cards.</p>' +
+          'and <strong>' + cash(walletValue(p)) + '</strong> held in cards' +
+          (spent(p) ? ', less <strong>' + cash(spent(p)) + '</strong> spent on tips and the map' : '') +
+          '.</p>' +
         '<p>' + totalCards + ' card' + (totalCards === 1 ? '' : 's') + ', ' + owned.length +
           ' different. Cards are worth more when the word is harder. Tap one to hear it.</p>' +
         '<div class="raritybar">' +
@@ -5234,6 +5430,9 @@ document.addEventListener("click", function (e) {
       });
       p.money = owed;
     }
+    if (typeof p.spent !== "number" || !isFinite(p.spent)) p.spent = 0;
+    if (!p.landmarks || typeof p.landmarks !== "object") p.landmarks = {};
+    if (!p.setsPaid || typeof p.setsPaid !== "object") p.setsPaid = {};
   });
   if (state.resetAt !== RECORDS_RESET) {
     state.profiles.forEach(wipeRecord);

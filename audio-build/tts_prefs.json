@@ -1,0 +1,190 @@
+[
+ {
+  "name": "pref_hokkaido",
+  "text": "ほっかいどう"
+ },
+ {
+  "name": "pref_aomori",
+  "text": "あおもりけん"
+ },
+ {
+  "name": "pref_akita",
+  "text": "あきたけん"
+ },
+ {
+  "name": "pref_iwate",
+  "text": "いわてけん"
+ },
+ {
+  "name": "pref_yamagata",
+  "text": "やまがたけん"
+ },
+ {
+  "name": "pref_miyagi",
+  "text": "みやぎけん"
+ },
+ {
+  "name": "pref_niigata",
+  "text": "にいがたけん"
+ },
+ {
+  "name": "pref_fukushima",
+  "text": "ふくしまけん"
+ },
+ {
+  "name": "pref_ishikawa",
+  "text": "いしかわけん"
+ },
+ {
+  "name": "pref_toyama",
+  "text": "とやまけん"
+ },
+ {
+  "name": "pref_nagano",
+  "text": "ながのけん"
+ },
+ {
+  "name": "pref_gunma",
+  "text": "ぐんまけん"
+ },
+ {
+  "name": "pref_tochigi",
+  "text": "とちぎけん"
+ },
+ {
+  "name": "pref_ibaraki",
+  "text": "いばらきけん"
+ },
+ {
+  "name": "pref_fukui",
+  "text": "ふくいけん"
+ },
+ {
+  "name": "pref_gifu",
+  "text": "ぎふけん"
+ },
+ {
+  "name": "pref_yamanashi",
+  "text": "やまなしけん"
+ },
+ {
+  "name": "pref_saitama",
+  "text": "さいたまけん"
+ },
+ {
+  "name": "pref_tokyo",
+  "text": "とうきょうと"
+ },
+ {
+  "name": "pref_chiba",
+  "text": "ちばけん"
+ },
+ {
+  "name": "pref_shimane",
+  "text": "しまねけん"
+ },
+ {
+  "name": "pref_tottori",
+  "text": "とっとりけん"
+ },
+ {
+  "name": "pref_hyogo",
+  "text": "ひょうごけん"
+ },
+ {
+  "name": "pref_kyoto",
+  "text": "きょうとふ"
+ },
+ {
+  "name": "pref_shiga",
+  "text": "しがけん"
+ },
+ {
+  "name": "pref_aichi",
+  "text": "あいちけん"
+ },
+ {
+  "name": "pref_shizuoka",
+  "text": "しずおかけん"
+ },
+ {
+  "name": "pref_kanagawa",
+  "text": "かながわけん"
+ },
+ {
+  "name": "pref_yamaguchi",
+  "text": "やまぐちけん"
+ },
+ {
+  "name": "pref_hiroshima",
+  "text": "ひろしまけん"
+ },
+ {
+  "name": "pref_okayama",
+  "text": "おかやまけん"
+ },
+ {
+  "name": "pref_osaka",
+  "text": "おおさかふ"
+ },
+ {
+  "name": "pref_nara",
+  "text": "ならけん"
+ },
+ {
+  "name": "pref_mie",
+  "text": "みえけん"
+ },
+ {
+  "name": "pref_fukuoka",
+  "text": "ふくおかけん"
+ },
+ {
+  "name": "pref_ehime",
+  "text": "えひめけん"
+ },
+ {
+  "name": "pref_kagawa",
+  "text": "かがわけん"
+ },
+ {
+  "name": "pref_tokushima",
+  "text": "とくしまけん"
+ },
+ {
+  "name": "pref_wakayama",
+  "text": "わかやまけん"
+ },
+ {
+  "name": "pref_saga",
+  "text": "さがけん"
+ },
+ {
+  "name": "pref_kumamoto",
+  "text": "くまもとけん"
+ },
+ {
+  "name": "pref_oita",
+  "text": "おおいたけん"
+ },
+ {
+  "name": "pref_kochi",
+  "text": "こうちけん"
+ },
+ {
+  "name": "pref_nagasaki",
+  "text": "ながさきけん"
+ },
+ {
+  "name": "pref_miyazaki",
+  "text": "みやざきけん"
+ },
+ {
+  "name": "pref_kagoshima",
+  "text": "かごしまけん"
+ },
+ {
+  "name": "pref_okinawa",
+  "text": "おきなわけん"
+ }
+]

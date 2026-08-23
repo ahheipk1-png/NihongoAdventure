@@ -26,6 +26,14 @@ WAV = os.path.join(SC, "local_trimmed")
 GAME = r"C:\JapaneseLearning\kana-quest.html"
 
 jobs = json.load(io.open(os.path.join(SC, "tts_words.json"), encoding="utf-8"))
+# The 47 prefecture names for the map. Local voice only - there is no
+# Cloudflare list for these - trimmed into their own folder.
+PREF_WAV = os.path.join(SC, "local_trimmed_prefs")
+pref_jobs = json.load(io.open(os.path.join(SC, "tts_prefs.json"), encoding="utf-8")) \
+    if os.path.exists(os.path.join(SC, "tts_prefs.json")) else []
+for j in pref_jobs:
+    j["_wavdir"] = PREF_WAV
+jobs = jobs + pref_jobs
 s = io.open(GAME, encoding="utf-8").read()
 
 audio = {}
@@ -38,7 +46,7 @@ for j in jobs:
         blank += 1
         continue
     mp3 = os.path.join(MP3, j["name"] + ".mp3")
-    wav = os.path.join(WAV, j["name"] + ".wav")
+    wav = os.path.join(j.get("_wavdir") or WAV, j["name"] + ".wav")
     if os.path.exists(mp3) and os.path.getsize(mp3) > 512:
         src, mime = mp3, "audio/mpeg"
         from_mp3 += 1
