@@ -1,0 +1,37 @@
+[
+ {
+  "pref": "yamanashi",
+  "field": "type",
+  "was": "garden",
+  "now": "mountain",
+  "why": "忍野八海 is a set of natural spring ponds, not a man-made garden; 'mountain' is the catch-all used elsewhere in this list for natural landmarks (Yoro Falls, Lake Kawaguchi, Miho no Matsubara), so this keeps the typing consistent."
+ },
+ {
+  "pref": "miyazaki",
+  "field": "jp",
+  "was": "サンメッセ日向",
+  "now": "サンメッセ日南",
+  "why": "The Moai park is Sun Messe NICHINAN (日南市), not Hyuga (日向). The English name in the draft already said Nichinan; the kanji was wrong."
+ },
+ {
+  "pref": "miyazaki",
+  "field": "kana",
+  "was": "サンメッセひゅうが",
+  "now": "サンメッセにちなん",
+  "why": "Reading follows the corrected name 日南 = にちなん; ひゅうが would be spoken wrongly by TTS."
+ },
+ {
+  "pref": "yamagata",
+  "field": "row 8 (jp/kana/en)",
+  "was": "蔵王の御釜 / ざおうのおかま / Zao Okama crater lake",
+  "now": "蔵王の樹氷 / ざおうのじゅひょう / Zao snow monsters (Juhyo)",
+  "why": "The Okama crater lake is physically in Miyagi Prefecture (Zao town, Katta district), not Yamagata. Replaced with the Zao Onsen snow monsters (juhyo), which are on the Yamagata side of Zao and are the prefecture's famous Zao sight."
+ },
+ {
+  "pref": "saitama",
+  "field": "kana",
+  "was": "さいたまスタジアムにまるまるに",
+  "now": "さいたまスタジアムにいまるまるに",
+  "why": "The official reading of 2002 in the stadium name is ニイマルマルニ (ni-i-maru-maru-ni) with a long vowel on the first digit; にまるまるに drops the long vowel and is not how the name is said aloud."
+ }
+]
