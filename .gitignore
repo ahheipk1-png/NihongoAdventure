@@ -7,3 +7,9 @@ node_modules/
 # raw generated audio (the compressed copies live inside index.html)
 audio-build/audio/
 audio-build/dist/
+audio-build/local_wav/
+audio-build/local_trimmed/
+audio-build/sample_out/
+audio-build/local_probe/
+audio-build/voice-sample.wav
+audio-build/probe*.json
