@@ -17,8 +17,10 @@ import io, os, re, json
 
 SC = os.path.dirname(os.path.abspath(__file__))
 GAME = r"C:\JapaneseLearning\kana-quest.html"
-RESULT = (r"C:\Users\MICHAE~1\AppData\Local\Temp\claude\C--JapaneseLearning"
-          r"\92eda8c4-e589-4414-8677-ad9f2474d45b\tasks\wvii6zvpi.output")
+import sys
+RESULT = sys.argv[1] if len(sys.argv) > 1 else (
+    r"C:\Users\MICHAE~1\AppData\Local\Temp\claude\C--JapaneseLearning"
+    r"\92eda8c4-e589-4414-8677-ad9f2474d45b\tasks\wvii6zvpi.output")
 
 KANJI = re.compile(u"[\u4e00-\u9fff]")
 KANA = re.compile(u"^[\u3041-\u309f\u30a0-\u30ff\u30fc\u30fb]+$")

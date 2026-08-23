@@ -22,11 +22,12 @@ GAME = r"C:\JapaneseLearning\kana-quest.html"
 # Teaching order: kana, then the everyday world, then word classes, then the
 # things they are here for, with N5 consolidating and grammar last.
 ORDER = ["hiragana", "katakana", "kanamix",
-         "numbers", "animals", "weekdays", "calendar",
+         "numbers", "animals", "weekdays", "calendar", "time2",
          "food", "drink", "restaurant",
-         "family", "body", "clothes", "home",
-         "weather", "school", "travel",
-         "verbs", "verbs2", "nouns", "adjectives", "adj2", "greetings",
+         "family", "body", "clothes", "home", "house2",
+         "weather", "school", "travel", "town",
+         "verbs", "verbs2", "verbs3", "nouns", "adjectives", "adj2",
+         "greetings", "feel", "hobby",
          "anime", "culture",
          "n5", "grammar"]
 
@@ -46,6 +47,12 @@ NEW = {
     "adj2":       {"title": "More Describing",   "sub": "けいようし \u2461", "icon": "\U0001f308", "value": 160},
     "anime":      {"title": "Anime & Manga",     "sub": "アニメ",       "icon": "\U0001f4fa", "value": 170},
     "culture":    {"title": "Japanese Culture",  "sub": "ぶんか",       "icon": "\u26e9\ufe0f", "value": 180},
+    "time2":      {"title": "Telling the Time",   "sub": "じかん",       "icon": "⏰",         "value": 130},
+    "town":       {"title": "Around Town",        "sub": "まちのなか",   "icon": "🏙️", "value": 140},
+    "house2":     {"title": "More at Home",       "sub": "いえのなか",   "icon": "🧹",     "value": 140},
+    "hobby":      {"title": "Hobbies & Sport",    "sub": "しゅみ",       "icon": "⚽",         "value": 150},
+    "feel":       {"title": "Feelings & Manners", "sub": "きもち",       "icon": "🤝",     "value": 150},
+    "verbs3":     {"title": "Everyday Verbs",     "sub": "どうし ③", "icon": "🤸",   "value": 160},
 }
 
 
@@ -81,8 +88,9 @@ def main():
 
     # ---- the new topics -------------------------------------------------
     blocks = []
+    already_reg = set(re.findall(r"\n  (\w+):\s*buildVocabCourse", s))
     for cid in ORDER:
-        if cid not in NEW or cid not in data:
+        if cid not in NEW or cid not in data or cid in already_reg:
             continue
         gs = data[cid]["groups"]
         blocks.append("  %s: [\n%s\n  ]" % (cid, ",\n".join(group_js(g) for g in gs)))
@@ -95,7 +103,7 @@ def main():
     # ---- COURSES --------------------------------------------------------
     lines = []
     for cid in ORDER:
-        if cid not in NEW or cid not in data:
+        if cid not in NEW or cid not in data or cid in already_reg:
             continue
         m = NEW[cid]
         lines.append('  %s: buildVocabCourse("%s", "%s", VOCAB.%s)' % (cid, m["title"], m["sub"], cid))
@@ -105,10 +113,10 @@ def main():
 
     # ---- COURSE_ORDER ---------------------------------------------------
     old_order = re.search(r'const COURSE_ORDER = \[.*?\];', s, re.S)
-    live = [c for c in ORDER if c in NEW or c in
-            ("hiragana", "katakana", "kanamix", "numbers", "animals", "weekdays",
-             "verbs", "nouns", "adjectives", "greetings", "n5", "grammar")]
-    live = [c for c in live if (c not in NEW) or (c in data)]
+    # Keep whatever is already registered in COURSES, plus whatever this run
+    # is adding. A wave must never drop the wave before it.
+    already = set(re.findall(r"\n  (\w+):\s*build(?:Vocab|Kana|Mix|Grammar)", s))
+    live = [c for c in ORDER if c in already or c in data]
     wrapped, line = [], "const COURSE_ORDER = ["
     for c in live:
         piece = '"%s", ' % c
@@ -120,13 +128,29 @@ def main():
     s = s[:old_order.start()] + "\n".join(wrapped) + s[old_order.end():]
 
     # ---- icons and card values -----------------------------------------
-    ic = ",\n  " + ", ".join('%s:"%s"' % (c, NEW[c]["icon"]) for c in ORDER if c in NEW and c in data)
-    s = s.replace('  greetings:"🙇", n5:"🎓", grammar:"📜"\n};',
-                  '  greetings:"🙇", n5:"🎓", grammar:"📜"' + ic + "\n};", 1)
+    # Insert before each table's closing brace rather than matching its last
+    # line. Matching the last line worked on the first wave and then silently
+    # did nothing on the second, because the first wave had changed that line -
+    # str.replace reports nothing when it matches nothing, so seven topics went
+    # in with no card value. That does not crash; it just quietly prices their
+    # cards at the fallback 20 instead of 130, renders them all "common", and
+    # halves their set bonuses. Hence the assertions at the end.
+    fresh = [c for c in ORDER if c in NEW and c in data and c not in already_reg]
 
-    cv = ",\n  " + ", ".join("%s: %d" % (c, NEW[c]["value"]) for c in ORDER if c in NEW and c in data)
-    s = s.replace("  n5: 200, grammar: 275, kanji: 225\n};",
-                  "  n5: 200, grammar: 275, kanji: 225" + cv + "\n};", 1)
+    def add_before_close(src, decl, additions):
+        if not additions:
+            return src
+        i = src.index(decl)
+        j = src.index("\n};", i)
+        return src[:j] + ",\n  " + additions + src[j:]
+
+    s = add_before_close(s, "const COURSE_ICONS = {",
+                         ", ".join('%s:"%s"' % (c, NEW[c]["icon"]) for c in fresh))
+    s = add_before_close(s, "const COURSE_CARD_VALUE = {",
+                         ", ".join("%s: %d" % (c, NEW[c]["value"]) for c in fresh))
+    for c in fresh:
+        assert ('%s:"' % c) in s, "icon for %s did not land" % c
+        assert re.search(r"\b%s: \d+" % c, s), "card value for %s did not land" % c
 
     io.open(GAME, "w", encoding="utf-8").write(s)
 
