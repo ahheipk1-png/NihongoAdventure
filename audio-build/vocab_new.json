@@ -1,0 +1,2177 @@
+{
+ "counters": {
+  "title": "Counters",
+  "groups": [
+   {
+    "label": "Counting things 1-5",
+    "items": [
+     {
+      "jp": "ひとつ",
+      "en": "one thing",
+      "pic": "1️⃣"
+     },
+     {
+      "jp": "ふたつ",
+      "en": "two things",
+      "pic": "2️⃣"
+     },
+     {
+      "jp": "みっつ",
+      "en": "three things",
+      "pic": "3️⃣"
+     },
+     {
+      "jp": "よっつ",
+      "en": "four things",
+      "pic": "4️⃣"
+     },
+     {
+      "jp": "いつつ",
+      "en": "five things",
+      "pic": "5️⃣"
+     }
+    ]
+   },
+   {
+    "label": "Counting things 6-10",
+    "items": [
+     {
+      "jp": "むっつ",
+      "en": "six things",
+      "pic": "6️⃣"
+     },
+     {
+      "jp": "ななつ",
+      "en": "seven things",
+      "pic": "7️⃣"
+     },
+     {
+      "jp": "やっつ",
+      "en": "eight things",
+      "pic": "8️⃣"
+     },
+     {
+      "jp": "ここのつ",
+      "en": "nine things",
+      "pic": "9️⃣"
+     },
+     {
+      "jp": "とお",
+      "en": "ten things",
+      "pic": "🔟"
+     }
+    ]
+   },
+   {
+    "label": "Counting people",
+    "items": [
+     {
+      "jp": "ひとり",
+      "en": "one person",
+      "pic": "🧍"
+     },
+     {
+      "jp": "ふたり",
+      "en": "two people",
+      "pic": "👫"
+     },
+     {
+      "jp": "さんにん",
+      "en": "three people",
+      "pic": "👨‍👩‍👦"
+     },
+     {
+      "jp": "よにん",
+      "en": "four people",
+      "pic": "👨‍👩‍👧‍👦"
+     },
+     {
+      "jp": "なんにん",
+      "en": "how many people",
+      "pic": "🤔"
+     }
+    ]
+   },
+   {
+    "label": "Flat and long things",
+    "items": [
+     {
+      "jp": "いちまい",
+      "en": "one flat thing",
+      "pic": "📄"
+     },
+     {
+      "jp": "にまい",
+      "en": "two flat things",
+      "pic": "📑"
+     },
+     {
+      "jp": "なんまい",
+      "en": "how many sheets",
+      "pic": "🎫"
+     },
+     {
+      "jp": "いっぽん",
+      "en": "one long thing",
+      "pic": "🖊️"
+     },
+     {
+      "jp": "さんぼん",
+      "en": "three long things",
+      "pic": "🥕"
+     }
+    ]
+   },
+   {
+    "label": "Age and how many",
+    "items": [
+     {
+      "jp": "ろくさい",
+      "en": "six years old",
+      "pic": "🎂"
+     },
+     {
+      "jp": "はっさい",
+      "en": "eight years old",
+      "pic": "🎈"
+     },
+     {
+      "jp": "なんさい",
+      "en": "how old",
+      "pic": "🕯️"
+     },
+     {
+      "jp": "なんこ",
+      "en": "how many pieces",
+      "pic": "📦"
+     },
+     {
+      "jp": "いくつ",
+      "en": "how many",
+      "pic": "🤷"
+     }
+    ]
+   }
+  ]
+ },
+ "calendar": {
+  "title": "Calendar",
+  "groups": [
+   {
+    "label": "Months: January to May",
+    "items": [
+     {
+      "jp": "いちがつ",
+      "en": "january",
+      "pic": "🎍"
+     },
+     {
+      "jp": "にがつ",
+      "en": "february",
+      "pic": "👹"
+     },
+     {
+      "jp": "さんがつ",
+      "en": "march",
+      "pic": "🎎"
+     },
+     {
+      "jp": "しがつ",
+      "en": "april",
+      "pic": "🎒"
+     },
+     {
+      "jp": "ごがつ",
+      "en": "may",
+      "pic": "🎏"
+     }
+    ]
+   },
+   {
+    "label": "Months: June to October",
+    "items": [
+     {
+      "jp": "ろくがつ",
+      "en": "june",
+      "pic": "☔"
+     },
+     {
+      "jp": "しちがつ",
+      "en": "july",
+      "pic": "🎋"
+     },
+     {
+      "jp": "はちがつ",
+      "en": "august",
+      "pic": "🎆"
+     },
+     {
+      "jp": "くがつ",
+      "en": "september",
+      "pic": "🌕"
+     },
+     {
+      "jp": "じゅうがつ",
+      "en": "october",
+      "pic": "🎃"
+     }
+    ]
+   },
+   {
+    "label": "November, December and month words",
+    "items": [
+     {
+      "jp": "じゅういちがつ",
+      "en": "november",
+      "pic": "🍁"
+     },
+     {
+      "jp": "じゅうにがつ",
+      "en": "december",
+      "pic": "🎄"
+     },
+     {
+      "jp": "せんげつ",
+      "en": "last month",
+      "pic": "⏮️"
+     },
+     {
+      "jp": "こんげつ",
+      "en": "this month",
+      "pic": "🗓️"
+     },
+     {
+      "jp": "らいげつ",
+      "en": "next month",
+      "pic": "⏭️"
+     }
+    ]
+   },
+   {
+    "label": "Days of the month",
+    "items": [
+     {
+      "jp": "ついたち",
+      "en": "1st of the month",
+      "pic": "1️⃣"
+     },
+     {
+      "jp": "ふつか",
+      "en": "2nd of the month",
+      "pic": "2️⃣"
+     },
+     {
+      "jp": "みっか",
+      "en": "3rd of the month",
+      "pic": "3️⃣"
+     },
+     {
+      "jp": "よっか",
+      "en": "4th of the month",
+      "pic": "4️⃣"
+     },
+     {
+      "jp": "いつか",
+      "en": "5th of the month",
+      "pic": "5️⃣"
+     }
+    ]
+   },
+   {
+    "label": "Seasons and summer holiday",
+    "items": [
+     {
+      "jp": "なつ",
+      "en": "summer",
+      "pic": "🌻"
+     },
+     {
+      "jp": "あき",
+      "en": "autumn",
+      "pic": "🍂"
+     },
+     {
+      "jp": "なつやすみ",
+      "en": "summer holiday",
+      "pic": "🏖️"
+     },
+     {
+      "jp": "ゆうがた",
+      "en": "evening",
+      "pic": "🌇"
+     },
+     {
+      "jp": "けさ",
+      "en": "this morning",
+      "pic": "🌄"
+     }
+    ]
+   },
+   {
+    "label": "Times of day",
+    "items": [
+     {
+      "jp": "こんばん",
+      "en": "tonight",
+      "pic": "🌃"
+     },
+     {
+      "jp": "ゆうべ",
+      "en": "last night",
+      "pic": "🌌"
+     },
+     {
+      "jp": "こんしゅう",
+      "en": "this week",
+      "pic": "📆"
+     },
+     {
+      "jp": "しゅうまつ",
+      "en": "weekend",
+      "pic": "🎡"
+     },
+     {
+      "jp": "まいしゅう",
+      "en": "every week",
+      "pic": "🔄"
+     }
+    ]
+   }
+  ]
+ },
+ "food": {
+  "title": "Food",
+  "groups": [
+   {
+    "label": "Rice dishes",
+    "items": [
+     {
+      "jp": "おにぎり",
+      "en": "rice ball",
+      "pic": "🍙"
+     },
+     {
+      "jp": "おべんとう",
+      "en": "lunch box",
+      "pic": "🍱"
+     },
+     {
+      "jp": "チャーハン",
+      "en": "fried rice",
+      "pic": "🥘"
+     },
+     {
+      "jp": "カレー",
+      "en": "curry",
+      "pic": "🍛"
+     },
+     {
+      "jp": "ラーメン",
+      "en": "ramen",
+      "pic": "🍜"
+     }
+    ]
+   },
+   {
+    "label": "Noodles",
+    "items": [
+     {
+      "jp": "うどん",
+      "en": "udon noodles",
+      "pic": "🍲"
+     },
+     {
+      "jp": "そば",
+      "en": "soba noodles",
+      "pic": "🥢"
+     },
+     {
+      "jp": "やきそば",
+      "en": "fried noodles",
+      "pic": "🥡"
+     },
+     {
+      "jp": "スパゲッティ",
+      "en": "spaghetti",
+      "pic": "🍝"
+     },
+     {
+      "jp": "すし",
+      "en": "sushi",
+      "pic": "🍣"
+     }
+    ]
+   },
+   {
+    "label": "Sushi and seafood",
+    "items": [
+     {
+      "jp": "さしみ",
+      "en": "raw fish slices",
+      "pic": "🐟"
+     },
+     {
+      "jp": "てんぷら",
+      "en": "tempura",
+      "pic": "🍤"
+     },
+     {
+      "jp": "えび",
+      "en": "prawn",
+      "pic": "🦐"
+     },
+     {
+      "jp": "ぎゅうにく",
+      "en": "beef",
+      "pic": "🥩"
+     },
+     {
+      "jp": "ぶたにく",
+      "en": "pork",
+      "pic": "🥓"
+     }
+    ]
+   },
+   {
+    "label": "Meat",
+    "items": [
+     {
+      "jp": "とりにく",
+      "en": "chicken meat",
+      "pic": "🍗"
+     },
+     {
+      "jp": "ハンバーガー",
+      "en": "hamburger",
+      "pic": "🍔"
+     },
+     {
+      "jp": "にんじん",
+      "en": "carrot",
+      "pic": "🥕"
+     },
+     {
+      "jp": "たまねぎ",
+      "en": "onion",
+      "pic": "🧅"
+     },
+     {
+      "jp": "じゃがいも",
+      "en": "potato",
+      "pic": "🥔"
+     }
+    ]
+   },
+   {
+    "label": "Vegetables",
+    "items": [
+     {
+      "jp": "きゅうり",
+      "en": "cucumber",
+      "pic": "🥒"
+     },
+     {
+      "jp": "とうもろこし",
+      "en": "corn",
+      "pic": "🌽"
+     },
+     {
+      "jp": "キャベツ",
+      "en": "cabbage",
+      "pic": "🥬"
+     },
+     {
+      "jp": "ピーマン",
+      "en": "green pepper",
+      "pic": "🫑"
+     },
+     {
+      "jp": "きのこ",
+      "en": "mushroom",
+      "pic": "🍄"
+     }
+    ]
+   },
+   {
+    "label": "More vegetables",
+    "items": [
+     {
+      "jp": "いちご",
+      "en": "strawberry",
+      "pic": "🍓"
+     },
+     {
+      "jp": "ぶどう",
+      "en": "grapes",
+      "pic": "🍇"
+     },
+     {
+      "jp": "もも",
+      "en": "peach",
+      "pic": "🍑"
+     },
+     {
+      "jp": "なし",
+      "en": "pear",
+      "pic": "🍐"
+     },
+     {
+      "jp": "さくらんぼ",
+      "en": "cherry",
+      "pic": "🍒"
+     }
+    ]
+   },
+   {
+    "label": "Fruit",
+    "items": [
+     {
+      "jp": "パイナップル",
+      "en": "pineapple",
+      "pic": "🍍"
+     },
+     {
+      "jp": "おやつ",
+      "en": "snack",
+      "pic": "🍬"
+     },
+     {
+      "jp": "たまごやき",
+      "en": "rolled omelette",
+      "pic": "🍳"
+     },
+     {
+      "jp": "ゆでたまご",
+      "en": "boiled egg",
+      "pic": "🥚"
+     },
+     {
+      "jp": "スープ",
+      "en": "soup",
+      "pic": "🍲"
+     }
+    ]
+   },
+   {
+    "label": "More fruit",
+    "items": [
+     {
+      "jp": "みそしる",
+      "en": "miso soup",
+      "pic": "🥣"
+     },
+     {
+      "jp": "サンドイッチ",
+      "en": "sandwich",
+      "pic": "🥪"
+     },
+     {
+      "jp": "しょくパン",
+      "en": "white bread",
+      "pic": "🍞"
+     },
+     {
+      "jp": "ケーキ",
+      "en": "cake",
+      "pic": "🍰"
+     },
+     {
+      "jp": "アイスクリーム",
+      "en": "ice cream",
+      "pic": "🍨"
+     }
+    ]
+   }
+  ]
+ },
+ "drink": {
+  "title": "Drink & sweets",
+  "groups": [
+   {
+    "label": "Hot drinks and add-ins",
+    "items": [
+     {
+      "jp": "こうちゃ",
+      "en": "black tea",
+      "pic": "🫖"
+     },
+     {
+      "jp": "はちみつ",
+      "en": "honey",
+      "pic": "🍯"
+     },
+     {
+      "jp": "コーラ",
+      "en": "cola",
+      "pic": "🥤"
+     },
+     {
+      "jp": "サイダー",
+      "en": "fizzy soda",
+      "pic": "🫧"
+     },
+     {
+      "jp": "ミルクティー",
+      "en": "milk tea",
+      "pic": "🧋"
+     }
+    ]
+   },
+   {
+    "label": "Cold drinks and ice",
+    "items": [
+     {
+      "jp": "ビール",
+      "en": "beer",
+      "pic": "🍺"
+     },
+     {
+      "jp": "ワイン",
+      "en": "wine",
+      "pic": "🍷"
+     },
+     {
+      "jp": "クッキー",
+      "en": "cookie",
+      "pic": "🍪"
+     },
+     {
+      "jp": "ドーナツ",
+      "en": "doughnut",
+      "pic": "🍩"
+     },
+     {
+      "jp": "プリン",
+      "en": "pudding",
+      "pic": "🍮"
+     }
+    ]
+   },
+   {
+    "label": "Grown-up drinks",
+    "items": [
+     {
+      "jp": "パフェ",
+      "en": "parfait",
+      "pic": "🍨"
+     },
+     {
+      "jp": "ホットケーキ",
+      "en": "pancake",
+      "pic": "🥞"
+     },
+     {
+      "jp": "だんご",
+      "en": "sweet dumpling",
+      "pic": "🍡"
+     },
+     {
+      "jp": "せんべい",
+      "en": "rice cracker",
+      "pic": "🍘"
+     },
+     {
+      "jp": "かきごおり",
+      "en": "shaved ice",
+      "pic": "🍧"
+     }
+    ]
+   }
+  ]
+ },
+ "restaurant": {
+  "title": "At the restaurant",
+  "groups": [
+   {
+    "label": "Eating out",
+    "items": [
+     {
+      "jp": "しょくどう",
+      "en": "cafeteria",
+      "pic": "🍲"
+     },
+     {
+      "jp": "すしや",
+      "en": "sushi shop",
+      "pic": "🍣"
+     },
+     {
+      "jp": "メニュー",
+      "en": "menu",
+      "pic": "📋"
+     },
+     {
+      "jp": "ちゅうもん",
+      "en": "order",
+      "pic": "📝"
+     },
+     {
+      "jp": "おかいけい",
+      "en": "bill",
+      "pic": "🧾"
+     }
+    ]
+   },
+   {
+    "label": "Ordering",
+    "items": [
+     {
+      "jp": "よやく",
+      "en": "reservation",
+      "pic": "📅"
+     },
+     {
+      "jp": "はし",
+      "en": "chopsticks",
+      "pic": "🥢"
+     },
+     {
+      "jp": "さら",
+      "en": "plate",
+      "pic": "🥘"
+     },
+     {
+      "jp": "フォーク",
+      "en": "fork",
+      "pic": "🍴"
+     },
+     {
+      "jp": "ナイフ",
+      "en": "knife",
+      "pic": "🔪"
+     }
+    ]
+   },
+   {
+    "label": "Tableware",
+    "items": [
+     {
+      "jp": "ちゃわん",
+      "en": "rice bowl",
+      "pic": "🍚"
+     },
+     {
+      "jp": "おしぼり",
+      "en": "wet towel",
+      "pic": "🧼"
+     },
+     {
+      "jp": "ナプキン",
+      "en": "napkin",
+      "pic": "🧻"
+     },
+     {
+      "jp": "からい",
+      "en": "spicy",
+      "pic": "🌶️"
+     },
+     {
+      "jp": "あまい",
+      "en": "sweet",
+      "pic": "🍬"
+     }
+    ]
+   },
+   {
+    "label": "At the table",
+    "items": [
+     {
+      "jp": "しょっぱい",
+      "en": "salty",
+      "pic": "🧂"
+     },
+     {
+      "jp": "すっぱい",
+      "en": "sour",
+      "pic": "🍋"
+     },
+     {
+      "jp": "にがい",
+      "en": "bitter",
+      "pic": "🍵"
+     },
+     {
+      "jp": "いらっしゃいませ",
+      "en": "welcome",
+      "pic": "👋"
+     },
+     {
+      "jp": "ください",
+      "en": "please give me",
+      "pic": "🙏"
+     }
+    ]
+   }
+  ]
+ },
+ "family": {
+  "title": "Family & people",
+  "groups": [
+   {
+    "label": "My parents and grandparents",
+    "items": [
+     {
+      "jp": "はは",
+      "en": "mother",
+      "pic": "👩"
+     },
+     {
+      "jp": "おにいさん",
+      "en": "big brother",
+      "pic": "👨"
+     },
+     {
+      "jp": "おねえさん",
+      "en": "big sister",
+      "pic": "👩"
+     },
+     {
+      "jp": "おじいさん",
+      "en": "grandpa",
+      "pic": "👴"
+     },
+     {
+      "jp": "おばあさん",
+      "en": "grandma",
+      "pic": "👵"
+     }
+    ]
+   },
+   {
+    "label": "My brothers and sisters",
+    "items": [
+     {
+      "jp": "いとこ",
+      "en": "cousin",
+      "pic": "🧑‍🤝‍🧑"
+     },
+     {
+      "jp": "むすこ",
+      "en": "son",
+      "pic": "👦"
+     },
+     {
+      "jp": "むすめ",
+      "en": "daughter",
+      "pic": "👧"
+     },
+     {
+      "jp": "あかちゃん",
+      "en": "baby",
+      "pic": "👶"
+     },
+     {
+      "jp": "おとな",
+      "en": "adult",
+      "pic": "🧑"
+     }
+    ]
+   },
+   {
+    "label": "Polite family words",
+    "items": [
+     {
+      "jp": "おとこのひと",
+      "en": "man",
+      "pic": "👨"
+     },
+     {
+      "jp": "おんなのひと",
+      "en": "woman",
+      "pic": "👩"
+     },
+     {
+      "jp": "おとこのこ",
+      "en": "boy",
+      "pic": "👦"
+     },
+     {
+      "jp": "おんなのこ",
+      "en": "girl",
+      "pic": "👧"
+     },
+     {
+      "jp": "ぼく",
+      "en": "me (boy)",
+      "pic": "👦"
+     }
+    ]
+   }
+  ]
+ },
+ "body": {
+  "title": "The body & feeling",
+  "groups": [
+   {
+    "label": "Head and face",
+    "items": [
+     {
+      "jp": "かみのけ",
+      "en": "hair",
+      "pic": "💇"
+     },
+     {
+      "jp": "くび",
+      "en": "neck",
+      "pic": "🧣"
+     },
+     {
+      "jp": "かた",
+      "en": "shoulder",
+      "pic": "🤷"
+     },
+     {
+      "jp": "うで",
+      "en": "arm",
+      "pic": "💪"
+     },
+     {
+      "jp": "ゆび",
+      "en": "finger",
+      "pic": "👆"
+     }
+    ]
+   },
+   {
+    "label": "More head and neck",
+    "items": [
+     {
+      "jp": "つめ",
+      "en": "nail",
+      "pic": "💅"
+     },
+     {
+      "jp": "からだ",
+      "en": "body",
+      "pic": "🧍"
+     },
+     {
+      "jp": "ひざ",
+      "en": "knee",
+      "pic": "🧎"
+     },
+     {
+      "jp": "いたい",
+      "en": "hurts",
+      "pic": "🤕"
+     },
+     {
+      "jp": "つかれた",
+      "en": "tired",
+      "pic": "😫"
+     }
+    ]
+   },
+   {
+    "label": "Arms and hands",
+    "items": [
+     {
+      "jp": "びょうき",
+      "en": "sickness",
+      "pic": "😷"
+     },
+     {
+      "jp": "ねつ",
+      "en": "fever",
+      "pic": "🤒"
+     },
+     {
+      "jp": "かぜ",
+      "en": "cold",
+      "pic": "🤧"
+     },
+     {
+      "jp": "くすり",
+      "en": "medicine",
+      "pic": "💊"
+     },
+     {
+      "jp": "けが",
+      "en": "injury",
+      "pic": "🩹"
+     }
+    ]
+   }
+  ]
+ },
+ "home": {
+  "title": "Home & things",
+  "groups": [
+   {
+    "label": "Home and rooms",
+    "items": [
+     {
+      "jp": "トイレ",
+      "en": "toilet",
+      "pic": "🚽"
+     },
+     {
+      "jp": "おふろ",
+      "en": "bath",
+      "pic": "🛁"
+     },
+     {
+      "jp": "まど",
+      "en": "window",
+      "pic": "🪟"
+     },
+     {
+      "jp": "ドア",
+      "en": "door",
+      "pic": "🚪"
+     },
+     {
+      "jp": "かいだん",
+      "en": "stairs",
+      "pic": "🪜"
+     }
+    ]
+   },
+   {
+    "label": "Parts of the house",
+    "items": [
+     {
+      "jp": "かべ",
+      "en": "wall",
+      "pic": "🧱"
+     },
+     {
+      "jp": "ベッド",
+      "en": "bed",
+      "pic": "🛏️"
+     },
+     {
+      "jp": "たな",
+      "en": "shelf",
+      "pic": "📚"
+     },
+     {
+      "jp": "ひきだし",
+      "en": "drawer",
+      "pic": "🗄️"
+     },
+     {
+      "jp": "ふとん",
+      "en": "futon",
+      "pic": "🛌"
+     }
+    ]
+   },
+   {
+    "label": "Furniture",
+    "items": [
+     {
+      "jp": "まくら",
+      "en": "pillow",
+      "pic": "😴"
+     },
+     {
+      "jp": "パジャマ",
+      "en": "pyjamas",
+      "pic": "👕"
+     },
+     {
+      "jp": "ぬいぐるみ",
+      "en": "soft toy",
+      "pic": "🧸"
+     },
+     {
+      "jp": "でんき",
+      "en": "light",
+      "pic": "💡"
+     },
+     {
+      "jp": "シャワー",
+      "en": "shower",
+      "pic": "🚿"
+     }
+    ]
+   },
+   {
+    "label": "Bedtime things",
+    "items": [
+     {
+      "jp": "はブラシ",
+      "en": "toothbrush",
+      "pic": "🪥"
+     },
+     {
+      "jp": "せっけん",
+      "en": "soap",
+      "pic": "🧼"
+     },
+     {
+      "jp": "シャンプー",
+      "en": "shampoo",
+      "pic": "🧴"
+     },
+     {
+      "jp": "かがみ",
+      "en": "mirror",
+      "pic": "🪞"
+     },
+     {
+      "jp": "かぎ",
+      "en": "key",
+      "pic": "🔑"
+     }
+    ]
+   },
+   {
+    "label": "In the bathroom",
+    "items": [
+     {
+      "jp": "リュック",
+      "en": "backpack",
+      "pic": "🎒"
+     },
+     {
+      "jp": "スマホ",
+      "en": "smartphone",
+      "pic": "📱"
+     },
+     {
+      "jp": "テレビ",
+      "en": "television",
+      "pic": "📺"
+     },
+     {
+      "jp": "れいぞうこ",
+      "en": "fridge",
+      "pic": "🧊"
+     },
+     {
+      "jp": "せんたくき",
+      "en": "washing machine",
+      "pic": "🧺"
+     }
+    ]
+   },
+   {
+    "label": "Things you carry",
+    "items": [
+     {
+      "jp": "パソコン",
+      "en": "computer",
+      "pic": "💻"
+     },
+     {
+      "jp": "おさら",
+      "en": "plate",
+      "pic": "🍽️"
+     },
+     {
+      "jp": "カレンダー",
+      "en": "calendar",
+      "pic": "📅"
+     },
+     {
+      "jp": "ごみばこ",
+      "en": "rubbish bin",
+      "pic": "🗑️"
+     },
+     {
+      "jp": "はさみ",
+      "en": "scissors",
+      "pic": "✂️"
+     }
+    ]
+   }
+  ]
+ },
+ "school": {
+  "title": "School & work",
+  "groups": [
+   {
+    "label": "In the classroom",
+    "items": [
+     {
+      "jp": "チョーク",
+      "en": "chalk",
+      "pic": "🖍️"
+     },
+     {
+      "jp": "せいと",
+      "en": "pupil",
+      "pic": "🧑‍🎓"
+     },
+     {
+      "jp": "じょうぎ",
+      "en": "ruler",
+      "pic": "📏"
+     },
+     {
+      "jp": "じしょ",
+      "en": "dictionary",
+      "pic": "📖"
+     },
+     {
+      "jp": "ふでばこ",
+      "en": "pencil case",
+      "pic": "🧰"
+     }
+    ]
+   },
+   {
+    "label": "Writing tools",
+    "items": [
+     {
+      "jp": "ランドセル",
+      "en": "school backpack",
+      "pic": "🎒"
+     },
+     {
+      "jp": "さんすう",
+      "en": "maths",
+      "pic": "🔢"
+     },
+     {
+      "jp": "こくご",
+      "en": "japanese language",
+      "pic": "🗾"
+     },
+     {
+      "jp": "えいご",
+      "en": "english",
+      "pic": "🔤"
+     },
+     {
+      "jp": "りか",
+      "en": "science",
+      "pic": "🔬"
+     }
+    ]
+   },
+   {
+    "label": "In the school bag",
+    "items": [
+     {
+      "jp": "しゃかい",
+      "en": "social studies",
+      "pic": "🌏"
+     },
+     {
+      "jp": "たいいく",
+      "en": "p.e.",
+      "pic": "🤸"
+     },
+     {
+      "jp": "おんがく",
+      "en": "music",
+      "pic": "🎵"
+     },
+     {
+      "jp": "ずこう",
+      "en": "art and craft",
+      "pic": "🎨"
+     },
+     {
+      "jp": "しょどう",
+      "en": "calligraphy",
+      "pic": "🖌️"
+     }
+    ]
+   },
+   {
+    "label": "School subjects",
+    "items": [
+     {
+      "jp": "ぶかつ",
+      "en": "club activity",
+      "pic": "🏸"
+     },
+     {
+      "jp": "べんきょう",
+      "en": "study",
+      "pic": "📚"
+     },
+     {
+      "jp": "しつもん",
+      "en": "question",
+      "pic": "🙋"
+     },
+     {
+      "jp": "こたえ",
+      "en": "answer",
+      "pic": "✅"
+     },
+     {
+      "jp": "かんごし",
+      "en": "nurse",
+      "pic": "💉"
+     }
+    ]
+   },
+   {
+    "label": "Art, sport and clubs",
+    "items": [
+     {
+      "jp": "けいさつ",
+      "en": "police",
+      "pic": "👮"
+     },
+     {
+      "jp": "てんいん",
+      "en": "shop assistant",
+      "pic": "🛒"
+     },
+     {
+      "jp": "コック",
+      "en": "cook",
+      "pic": "👨‍🍳"
+     },
+     {
+      "jp": "かいしゃ",
+      "en": "company",
+      "pic": "🏢"
+     },
+     {
+      "jp": "うんてんしゅ",
+      "en": "driver",
+      "pic": "🚌"
+     }
+    ]
+   }
+  ]
+ },
+ "travel": {
+  "title": "Getting around",
+  "groups": [
+   {
+    "label": "Public transport",
+    "items": [
+     {
+      "jp": "こうばん",
+      "en": "police box",
+      "pic": "👮"
+     },
+     {
+      "jp": "スーパー",
+      "en": "supermarket",
+      "pic": "🛒"
+     },
+     {
+      "jp": "コンビニ",
+      "en": "convenience store",
+      "pic": "🏪"
+     },
+     {
+      "jp": "みぎ",
+      "en": "right",
+      "pic": "➡️"
+     },
+     {
+      "jp": "ひだり",
+      "en": "left",
+      "pic": "⬅️"
+     }
+    ]
+   },
+   {
+    "label": "Places in town",
+    "items": [
+     {
+      "jp": "まえ",
+      "en": "front",
+      "pic": "⏩"
+     },
+     {
+      "jp": "うしろ",
+      "en": "behind",
+      "pic": "🔙"
+     },
+     {
+      "jp": "となり",
+      "en": "next to",
+      "pic": "👫"
+     },
+     {
+      "jp": "ちかい",
+      "en": "near",
+      "pic": "🤏"
+     },
+     {
+      "jp": "とおい",
+      "en": "far",
+      "pic": "🔭"
+     }
+    ]
+   },
+   {
+    "label": "Shops and buildings",
+    "items": [
+     {
+      "jp": "よこ",
+      "en": "side",
+      "pic": "↔️"
+     },
+     {
+      "jp": "つぎ",
+      "en": "next",
+      "pic": "🔜"
+     },
+     {
+      "jp": "きた",
+      "en": "north",
+      "pic": "🧭"
+     },
+     {
+      "jp": "みなみ",
+      "en": "south",
+      "pic": "🌴"
+     },
+     {
+      "jp": "ひがし",
+      "en": "east",
+      "pic": "🌅"
+     }
+    ]
+   },
+   {
+    "label": "Right, left and beside",
+    "items": [
+     {
+      "jp": "にし",
+      "en": "west",
+      "pic": "🌇"
+     },
+     {
+      "jp": "ちず",
+      "en": "map",
+      "pic": "🗺️"
+     },
+     {
+      "jp": "した",
+      "en": "below",
+      "pic": "⬇️"
+     },
+     {
+      "jp": "なか",
+      "en": "inside",
+      "pic": "📦"
+     },
+     {
+      "jp": "そと",
+      "en": "outside",
+      "pic": "🌳"
+     }
+    ]
+   },
+   {
+    "label": "Which way, how far",
+    "items": [
+     {
+      "jp": "まんなか",
+      "en": "middle",
+      "pic": "🎯"
+     },
+     {
+      "jp": "のる",
+      "en": "get on",
+      "pic": "🚊"
+     },
+     {
+      "jp": "おりる",
+      "en": "get off",
+      "pic": "🚏"
+     },
+     {
+      "jp": "まがる",
+      "en": "turn",
+      "pic": "↩️"
+     },
+     {
+      "jp": "わたる",
+      "en": "cross",
+      "pic": "🚸"
+     }
+    ]
+   }
+  ]
+ },
+ "weather": {
+  "title": "Weather & nature",
+  "groups": [
+   {
+    "label": "Weather",
+    "items": [
+     {
+      "jp": "かみなり",
+      "en": "thunder",
+      "pic": "⚡"
+     },
+     {
+      "jp": "たいふう",
+      "en": "typhoon",
+      "pic": "🌀"
+     },
+     {
+      "jp": "きり",
+      "en": "fog",
+      "pic": "🌫️"
+     },
+     {
+      "jp": "にじ",
+      "en": "rainbow",
+      "pic": "🌈"
+     },
+     {
+      "jp": "すずしい",
+      "en": "cool",
+      "pic": "🍃"
+     }
+    ]
+   },
+   {
+    "label": "Hot & cold",
+    "items": [
+     {
+      "jp": "あたたかい",
+      "en": "warm",
+      "pic": "🌤️"
+     },
+     {
+      "jp": "つめたい",
+      "en": "cold to touch",
+      "pic": "🧊"
+     },
+     {
+      "jp": "みずうみ",
+      "en": "lake",
+      "pic": "🏞️"
+     },
+     {
+      "jp": "しま",
+      "en": "island",
+      "pic": "🏝️"
+     },
+     {
+      "jp": "なみ",
+      "en": "wave",
+      "pic": "🌊"
+     }
+    ]
+   },
+   {
+    "label": "Water & islands",
+    "items": [
+     {
+      "jp": "たき",
+      "en": "waterfall",
+      "pic": "💦"
+     },
+     {
+      "jp": "しずく",
+      "en": "drop of water",
+      "pic": "💧"
+     },
+     {
+      "jp": "はやし",
+      "en": "woods",
+      "pic": "🌳"
+     },
+     {
+      "jp": "つち",
+      "en": "soil",
+      "pic": "🟫"
+     },
+     {
+      "jp": "いし",
+      "en": "stone",
+      "pic": "🪨"
+     }
+    ]
+   },
+   {
+    "label": "Forests & ground",
+    "items": [
+     {
+      "jp": "すな",
+      "en": "sand",
+      "pic": "🏜️"
+     },
+     {
+      "jp": "さくら",
+      "en": "cherry blossom",
+      "pic": "🌸"
+     },
+     {
+      "jp": "たね",
+      "en": "seed",
+      "pic": "🌱"
+     },
+     {
+      "jp": "たけ",
+      "en": "bamboo",
+      "pic": "🎋"
+     },
+     {
+      "jp": "もみじ",
+      "en": "maple leaf",
+      "pic": "🍁"
+     }
+    ]
+   }
+  ]
+ },
+ "clothes": {
+  "title": "Clothes & colours",
+  "groups": [
+   {
+    "label": "Clothes",
+    "items": [
+     {
+      "jp": "ワンピース",
+      "en": "dress",
+      "pic": "👗"
+     },
+     {
+      "jp": "スニーカー",
+      "en": "trainers",
+      "pic": "👟"
+     },
+     {
+      "jp": "ながぐつ",
+      "en": "rain boots",
+      "pic": "👢"
+     },
+     {
+      "jp": "サンダル",
+      "en": "sandals",
+      "pic": "👡"
+     },
+     {
+      "jp": "コート",
+      "en": "coat",
+      "pic": "🧥"
+     }
+    ]
+   },
+   {
+    "label": "Shoes and socks",
+    "items": [
+     {
+      "jp": "セーター",
+      "en": "jumper",
+      "pic": "🧶"
+     },
+     {
+      "jp": "マフラー",
+      "en": "scarf",
+      "pic": "🧣"
+     },
+     {
+      "jp": "てぶくろ",
+      "en": "gloves",
+      "pic": "🧤"
+     },
+     {
+      "jp": "ネクタイ",
+      "en": "tie",
+      "pic": "👔"
+     },
+     {
+      "jp": "オレンジ",
+      "en": "orange",
+      "pic": "🟠"
+     }
+    ]
+   }
+  ]
+ },
+ "verbs2": {
+  "title": "More verbs",
+  "groups": [
+   {
+    "label": "Daily routine",
+    "items": [
+     {
+      "jp": "あらう",
+      "en": "wash",
+      "pic": "🧼"
+     },
+     {
+      "jp": "はたらく",
+      "en": "work",
+      "pic": "💼"
+     },
+     {
+      "jp": "やすむ",
+      "en": "rest",
+      "pic": "🛋️"
+     },
+     {
+      "jp": "とぶ",
+      "en": "fly",
+      "pic": "🕊️"
+     },
+     {
+      "jp": "はいる",
+      "en": "enter",
+      "pic": "🚪"
+     }
+    ]
+   },
+   {
+    "label": "Getting around",
+    "items": [
+     {
+      "jp": "でる",
+      "en": "go out",
+      "pic": "➡️"
+     },
+     {
+      "jp": "あう",
+      "en": "meet",
+      "pic": "🤝"
+     },
+     {
+      "jp": "うたう",
+      "en": "sing",
+      "pic": "🎤"
+     },
+     {
+      "jp": "おどる",
+      "en": "dance",
+      "pic": "💃"
+     },
+     {
+      "jp": "わらう",
+      "en": "laugh",
+      "pic": "😄"
+     }
+    ]
+   },
+   {
+    "label": "Coming and going",
+    "items": [
+     {
+      "jp": "なく",
+      "en": "cry",
+      "pic": "😭"
+     },
+     {
+      "jp": "すわる",
+      "en": "sit",
+      "pic": "🪑"
+     },
+     {
+      "jp": "たつ",
+      "en": "stand",
+      "pic": "🧍"
+     },
+     {
+      "jp": "ならう",
+      "en": "learn",
+      "pic": "📚"
+     },
+     {
+      "jp": "おぼえる",
+      "en": "memorize",
+      "pic": "🧠"
+     }
+    ]
+   },
+   {
+    "label": "Playing and feelings",
+    "items": [
+     {
+      "jp": "わすれる",
+      "en": "forget",
+      "pic": "💨"
+     },
+     {
+      "jp": "りょうりする",
+      "en": "cook",
+      "pic": "🍳"
+     },
+     {
+      "jp": "そうじする",
+      "en": "clean",
+      "pic": "🧹"
+     },
+     {
+      "jp": "せんたくする",
+      "en": "do laundry",
+      "pic": "🧺"
+     },
+     {
+      "jp": "うる",
+      "en": "sell",
+      "pic": "🏪"
+     }
+    ]
+   }
+  ]
+ },
+ "anime": {
+  "title": "Anime & manga",
+  "groups": [
+   {
+    "label": "Anime and manga",
+    "items": [
+     {
+      "jp": "アニメ",
+      "en": "anime",
+      "pic": "📺"
+     },
+     {
+      "jp": "まんが",
+      "en": "manga",
+      "pic": "📖"
+     },
+     {
+      "jp": "ざっし",
+      "en": "magazine",
+      "pic": "📔"
+     },
+     {
+      "jp": "ほんや",
+      "en": "bookshop",
+      "pic": "📚"
+     },
+     {
+      "jp": "オープニング",
+      "en": "opening theme",
+      "pic": "🎵"
+     }
+    ]
+   },
+   {
+    "label": "Making the story",
+    "items": [
+     {
+      "jp": "ものがたり",
+      "en": "story",
+      "pic": "📜"
+     },
+     {
+      "jp": "さくしゃ",
+      "en": "author",
+      "pic": "✍️"
+     },
+     {
+      "jp": "かんとく",
+      "en": "director",
+      "pic": "🎬"
+     },
+     {
+      "jp": "せいゆう",
+      "en": "voice actor",
+      "pic": "🎤"
+     },
+     {
+      "jp": "キャラクター",
+      "en": "character",
+      "pic": "🧑"
+     }
+    ]
+   },
+   {
+    "label": "Characters",
+    "items": [
+     {
+      "jp": "しゅじんこう",
+      "en": "main character",
+      "pic": "⭐"
+     },
+     {
+      "jp": "ヒーロー",
+      "en": "hero",
+      "pic": "🦸"
+     },
+     {
+      "jp": "しょうねん",
+      "en": "boy",
+      "pic": "👦"
+     },
+     {
+      "jp": "しょうじょ",
+      "en": "girl",
+      "pic": "👧"
+     },
+     {
+      "jp": "ぼうけん",
+      "en": "adventure",
+      "pic": "🗺️"
+     }
+    ]
+   },
+   {
+    "label": "Fantasy and adventure",
+    "items": [
+     {
+      "jp": "まほう",
+      "en": "magic",
+      "pic": "✨"
+     },
+     {
+      "jp": "ゆうしゃ",
+      "en": "brave hero",
+      "pic": "🛡️"
+     },
+     {
+      "jp": "りゅう",
+      "en": "dragon",
+      "pic": "🐉"
+     },
+     {
+      "jp": "かいじゅう",
+      "en": "giant monster",
+      "pic": "🦖"
+     },
+     {
+      "jp": "にんじゃ",
+      "en": "ninja",
+      "pic": "🥷"
+     }
+    ]
+   },
+   {
+    "label": "Ninja and samurai",
+    "items": [
+     {
+      "jp": "さむらい",
+      "en": "samurai",
+      "pic": "⚔️"
+     },
+     {
+      "jp": "しゅりけん",
+      "en": "throwing star",
+      "pic": "✴️"
+     },
+     {
+      "jp": "かたな",
+      "en": "sword",
+      "pic": "🗡️"
+     },
+     {
+      "jp": "たたかう",
+      "en": "fight",
+      "pic": "👊"
+     },
+     {
+      "jp": "コスプレ",
+      "en": "cosplay",
+      "pic": "🎭"
+     }
+    ]
+   }
+  ]
+ },
+ "culture": {
+  "title": "Japanese culture",
+  "groups": [
+   {
+    "label": "Seasons and nature",
+    "items": [
+     {
+      "jp": "こいのぼり",
+      "en": "carp streamer",
+      "pic": "🎏"
+     },
+     {
+      "jp": "つきみ",
+      "en": "moon viewing",
+      "pic": "🎑"
+     },
+     {
+      "jp": "ふじさん",
+      "en": "mount fuji",
+      "pic": "🗻"
+     },
+     {
+      "jp": "まつり",
+      "en": "festival",
+      "pic": "🎉"
+     },
+     {
+      "jp": "はなび",
+      "en": "fireworks",
+      "pic": "🎆"
+     }
+    ]
+   },
+   {
+    "label": "Festivals",
+    "items": [
+     {
+      "jp": "たなばた",
+      "en": "star festival",
+      "pic": "🎋"
+     },
+     {
+      "jp": "ちょうちん",
+      "en": "paper lantern",
+      "pic": "🏮"
+     },
+     {
+      "jp": "たいこ",
+      "en": "drum",
+      "pic": "🥁"
+     },
+     {
+      "jp": "じんじゃ",
+      "en": "shrine",
+      "pic": "🛐"
+     },
+     {
+      "jp": "とりい",
+      "en": "shrine gate",
+      "pic": "⛩️"
+     }
+    ]
+   },
+   {
+    "label": "Shrines and temples",
+    "items": [
+     {
+      "jp": "おてら",
+      "en": "temple",
+      "pic": "🛕"
+     },
+     {
+      "jp": "おみくじ",
+      "en": "fortune slip",
+      "pic": "📜"
+     },
+     {
+      "jp": "おまもり",
+      "en": "lucky charm",
+      "pic": "🧿"
+     },
+     {
+      "jp": "おぞうに",
+      "en": "new year soup",
+      "pic": "🍲"
+     },
+     {
+      "jp": "おとしだま",
+      "en": "new year money",
+      "pic": "🧧"
+     }
+    ]
+   },
+   {
+    "label": "New Year",
+    "items": [
+     {
+      "jp": "かどまつ",
+      "en": "new year pine",
+      "pic": "🎍"
+     },
+     {
+      "jp": "はつもうで",
+      "en": "first shrine visit",
+      "pic": "🙏"
+     },
+     {
+      "jp": "きもの",
+      "en": "kimono",
+      "pic": "👘"
+     },
+     {
+      "jp": "ゆかた",
+      "en": "summer kimono",
+      "pic": "🥻"
+     },
+     {
+      "jp": "げた",
+      "en": "wooden clogs",
+      "pic": "🩴"
+     }
+    ]
+   },
+   {
+    "label": "Traditional clothes and accessories",
+    "items": [
+     {
+      "jp": "せんす",
+      "en": "folding fan",
+      "pic": "🪭"
+     },
+     {
+      "jp": "おび",
+      "en": "kimono sash",
+      "pic": "🎀"
+     },
+     {
+      "jp": "おんせん",
+      "en": "hot spring",
+      "pic": "♨️"
+     },
+     {
+      "jp": "たたみ",
+      "en": "tatami mat",
+      "pic": "🟩"
+     },
+     {
+      "jp": "おはし",
+      "en": "chopsticks",
+      "pic": "🥢"
+     }
+    ]
+   },
+   {
+    "label": "Hot springs and the home",
+    "items": [
+     {
+      "jp": "おちゃわん",
+      "en": "rice bowl",
+      "pic": "🍚"
+     },
+     {
+      "jp": "おりがみ",
+      "en": "paper folding",
+      "pic": "📄"
+     },
+     {
+      "jp": "いけばな",
+      "en": "flower arranging",
+      "pic": "💐"
+     },
+     {
+      "jp": "さどう",
+      "en": "tea ceremony",
+      "pic": "🍵"
+     },
+     {
+      "jp": "かぶき",
+      "en": "kabuki theatre",
+      "pic": "🎭"
+     }
+    ]
+   },
+   {
+    "label": "Traditional arts",
+    "items": [
+     {
+      "jp": "すもう",
+      "en": "sumo",
+      "pic": "🤼"
+     },
+     {
+      "jp": "からて",
+      "en": "karate",
+      "pic": "👊"
+     },
+     {
+      "jp": "じゅうどう",
+      "en": "judo",
+      "pic": "🥋"
+     },
+     {
+      "jp": "けんどう",
+      "en": "kendo",
+      "pic": "🤺"
+     },
+     {
+      "jp": "きゅうどう",
+      "en": "archery",
+      "pic": "🏹"
+     }
+    ]
+   }
+  ]
+ }
+}

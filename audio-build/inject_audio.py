@@ -3,17 +3,23 @@
 
     python inject_audio.py
 
-Two sources, in order of preference per word:
+Three sources, in order of preference per word:
 
   1. audio/<name>.mp3          - MeloTTS via Cloudflare Workers AI, the better
                                  voice, blocked on a quota bug as of 2026-08-22
-  2. local_trimmed/<name>.wav  - Microsoft Haruka, synthesised offline on this
-                                 machine and trimmed of SAPI's padding
+  2. local_mp3/<name>.mp3      - Microsoft Haruka, synthesised offline and
+                                 encoded small by to_mp3.py
+  3. local_trimmed/<name>.wav  - the same clip before encoding, kept as a
+                                 fallback for anything to_mp3.py has not reached
 
 Preferring mp3 per word rather than per run is what makes the upgrade path
 free: when the Cloudflare allowance returns, generate the mp3s and re-run this,
 and every word that now has a better clip takes it while the rest keep Haruka.
 No rewrite, no flag to remember.
+
+The WAVs are what makes the page enormous - 15 KB a clip against 2.5 KB for the
+same thing at 32 kbps - so local_mp3 sitting above them is the difference
+between a page a phone loads and one it does not.
 
 Safe to re-run: it replaces any existing AUDIO block. Words with no clip at all
 are simply absent and the game falls back to a device voice for those.
@@ -22,6 +28,7 @@ import io, os, re, json, base64, sys
 
 SC = os.path.dirname(os.path.abspath(__file__))
 MP3 = os.path.join(SC, "audio")
+LOCAL_MP3 = os.path.join(SC, "local_mp3")
 WAV = os.path.join(SC, "local_trimmed")
 GAME = r"C:\JapaneseLearning\kana-quest.html"
 
@@ -38,7 +45,12 @@ s = io.open(GAME, encoding="utf-8").read()
 
 audio = {}
 bytes_used = 0
-from_mp3 = from_wav = missing = blank = 0
+from_mp3 = from_local = from_wav = missing = blank = 0
+
+
+def usable(path, floor=256):
+    return os.path.exists(path) and os.path.getsize(path) > floor
+
 
 for j in jobs:
     text = (j.get("text") or "").strip()
@@ -46,11 +58,15 @@ for j in jobs:
         blank += 1
         continue
     mp3 = os.path.join(MP3, j["name"] + ".mp3")
+    local = os.path.join(LOCAL_MP3, j["name"] + ".mp3")
     wav = os.path.join(j.get("_wavdir") or WAV, j["name"] + ".wav")
-    if os.path.exists(mp3) and os.path.getsize(mp3) > 512:
+    if usable(mp3, 512):
         src, mime = mp3, "audio/mpeg"
         from_mp3 += 1
-    elif os.path.exists(wav) and os.path.getsize(wav) > 512:
+    elif usable(local):
+        src, mime = local, "audio/mpeg"
+        from_local += 1
+    elif usable(wav, 512):
         src, mime = wav, "audio/wav"
         from_wav += 1
     else:
@@ -75,6 +91,7 @@ else:
 
 io.open(GAME, "w", encoding="utf-8").write(s)
 mb = 1048576.0
-print("embedded %d clips: %d MeloTTS mp3, %d local wav" % (len(audio), from_mp3, from_wav))
+print("embedded %d clips: %d MeloTTS mp3, %d local mp3, %d raw wav"
+      % (len(audio), from_mp3, from_local, from_wav))
 print("  %d missing, %d blank entries skipped" % (missing, blank))
 print("  %.1f MB of audio -> %.1f MB of page" % (bytes_used / mb, os.path.getsize(GAME) / mb))
