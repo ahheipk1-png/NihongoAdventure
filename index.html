@@ -408,6 +408,13 @@ p  { margin: 0; color: var(--ink-soft); line-height: 1.6; }
   color: var(--ink-soft);
 }
 .board-tag b { color: var(--ink); font-family: var(--font-kana); font-size: 15px; }
+button.board-tag.leave {
+  cursor: pointer; font: inherit; font-size: 13px; font-weight: 700;
+  color: var(--ai); border-color: var(--ai-wash); background: var(--ai-wash);
+  min-height: 34px;
+}
+button.board-tag.leave:hover { border-color: var(--ai); }
+button.board-tag.leave:focus-visible { outline: 2.5px solid var(--ai); outline-offset: 2px; }
 .board-tag.lives b { font-family: var(--font-ui); letter-spacing: 3px; color: var(--shu); }
 .unlock {
   border: 2px solid var(--yamabuki); background: var(--yamabuki-wash); color: var(--yamabuki);
@@ -2625,10 +2632,11 @@ function powerInit(p, mode) {
 function powerHUD() {
   const pct = Math.max(0, Math.min(100, session.power || 0));
   return '<div class="power-row">' +
-           '<span class="power-tag">Power</span>' +
+           '<span class="power-tag" title="Power drains the whole time you play. Every right answer tops it back up — run out and the round ends.">Power</span>' +
            '<span class="power-bar' + (pct <= 20 ? " low" : pct <= 50 ? " mid" : "") + '" id="powerBar">' +
              '<i id="powerFill" style="width:' + pct + '%"></i></span>' +
-           '<span class="quota" id="quotaChip">' + session.score + ' / ' + session.quota + '</span>' +
+           '<span class="quota" id="quotaChip" title="Right answers so far — reach ' +
+             session.quota + ' to pass this round">' + session.score + ' / ' + session.quota + '</span>' +
          '</div>';
 }
 
@@ -2737,7 +2745,8 @@ function renderTopbar() {
   let html = '<button class="brand" id="toHome" aria-label="Nihongo Adventure home">' +
              '<span class="brand-mark">日</span><span class="brand-name">Nihongo Adventure</span></button>';
   if (p && screen !== "home") {
-    html += '<button class="who" id="toMenu">' +
+    html += '<button class="who" id="toMenu" title="' + esc(p.name) +
+              ' — back to the topic menu">' +
               '<span class="who-face" aria-hidden="true">' + p.face + '</span>' +
               '<span class="who-name">' + esc(p.name) + '</span></button>' +
             '<span class="stars green" title="Levels cleared without a single mistake">' +
@@ -2759,7 +2768,24 @@ function renderTopbar() {
 function boardTag() {
   if (!session || !session.level) return "";
   const lv = session.level;
-  return '<span class="board-tag">' + lv.label + ' <b>' + lv.sub + '</b></span>';
+  const game = MODE_META[session.mode] || {};
+  const shown = lv.kana.slice(0, 8).join(" ") + (lv.kana.length > 8 ? " …" : "");
+  return '<span class="board-tag" title="' +
+           esc(lv.label + " of " + lv.total + " · " + (game.title || "") + " · " + shown) +
+         '">' + lv.label + ' <b>' + lv.sub + '</b></span>' +
+         /* A child who opened the wrong level should not have to lose on purpose
+            to get out of it. Nothing is kept either way - a round only counts
+            when its quota is filled - so leaving costs exactly nothing. */
+         '<button class="board-tag leave" id="toLevelsNow" ' +
+           'title="Leave this round and pick a different level. Nothing is lost — ' +
+           'a round only counts once you fill the quota.">← Levels</button>';
+}
+
+/* Wired by every game that draws a boardTag. Kept in one place so a new game
+   cannot forget it. */
+function wireBoardTag(p) {
+  const b = document.getElementById("toLevelsNow");
+  if (b) b.onclick = function () { stopLoops(); session = null; go("levels"); };
 }
 
 // Levels are passed at the end of a board, so this shows on the result screen.
@@ -3097,7 +3123,12 @@ function renderLevels(p) {
                 : here ? '<span class="lvlrow-go">Play ›</span>'
                 : past ? '<span class="lvlrow-go">Again ›</span>'
                 : '<span class="lvlrow-lock" aria-hidden="true">🔒</span>';
-    rows.push('<' + tag + ' class="lvlrow ' + state + '"' +
+    const tip = star
+      ? "Level " + (i + 1) + " — already cleared without a mistake. Play it again?"
+      : past ? "Level " + (i + 1) + " — play it again; clear it with no mistakes for a ★"
+      : here ? "Level " + (i + 1) + " — where you are now. Tap to play it."
+      : "Level " + (i + 1) + " — not open yet; reach it by passing the levels before it";
+    rows.push('<' + tag + ' class="lvlrow ' + state + '" title="' + esc(tip) + '"' +
       (past || here ? ' data-lv="' + i + '"' : ' aria-disabled="true"') + '>' +
         '<span class="lvlrow-n">' + (i + 1) + '</span>' +
         '<span class="lvlrow-main">' +
@@ -3507,7 +3538,10 @@ function stripHTML() {
     pips.push('<span class="pip ' + (i < session.score ? "hit" : i === session.score ? "now" : "") + '"></span>');
   }
   return '<div class="strip"><div class="pips">' + pips.join("") + '</div>' +
-         (session.streak > 1 ? '<span class="streak">🔥 ' + session.streak + '</span>' : '') + '</div>';
+         (session.streak > 1
+           ? '<span class="streak" title="' + session.streak + ' right in a row — one wrong answer resets it">' +
+             '🔥 ' + session.streak + '</span>'
+           : '') + '</div>';
 }
 
 function renderMatch(p) {
@@ -3568,6 +3602,7 @@ function renderMatch(p) {
     '</div>';
 
   document.getElementById("quit").onclick = function () { finish(p); };
+  wireBoardTag(p);
   if (listening) {
     // Here the sound is the question, so it always plays and always replays -
     // the reveal rule that silences a speaker elsewhere does not apply.
@@ -3720,6 +3755,7 @@ function renderPairs(p) {
     b.onclick = function () { flip(p, parseInt(b.getAttribute("data-i"), 10)); };
   });
   document.getElementById("quit").onclick = function () { finish(p); };
+  wireBoardTag(p);
 }
 
 function flip(p, i) {
@@ -3843,6 +3879,7 @@ function renderFruit(p) {
     '</div>';
 
   document.getElementById("quit").onclick = function () { finish(p); };
+  wireBoardTag(p);
   wireFruit(p);
 }
 
@@ -4059,6 +4096,7 @@ function renderWord(p) {
     '</div>';
 
   document.getElementById("quit").onclick = function () { finish(p); };
+  wireBoardTag(p);
   if (!solved) wireWord(p);
 }
 
@@ -4224,6 +4262,7 @@ function renderFish(p) {
     '</div>';
 
   document.getElementById("quit").onclick = function () { finish(p); };
+  wireBoardTag(p);
 
   const pond = document.getElementById("pond");
   const big = document.getElementById("promptBig");
@@ -4648,7 +4687,11 @@ function renderRoom(p) {
   screenEl.innerHTML =
     '<div class="stack">' +
       '<div class="row">' +
-        '<span class="board-tag">' + (room.kind === "room" ? "🃏 Card Room" : "🎁 Lucky draw") +
+        '<span class="board-tag" title="' +
+          (room.kind === "room"
+            ? "Answer all " + room.need + " to win a card"
+            : "Answer " + room.need + " to spin the draw this level earned") +
+          '">' + (room.kind === "room" ? "🃏 Card Room" : "🎁 Lucky draw") +
           ' <b>' + room.done + ' / ' + room.need + '</b></span>' +
         (room.kind === "room"
           ? '<span class="board-tag lives" title="Three lost questions and the room starts over">' +
@@ -4784,7 +4827,9 @@ function renderWallet(p) {
           ' different. Cards are worth more when the word is harder. Tap one to hear it.</p>' +
         '<div class="raritybar">' +
           ["legendary", "epic", "rare", "common"].map(function (r) {
-            return '<span class="rchip ' + r + '">' + r + ' ' + byRarity[r] + '</span>';
+            return '<span class="rchip ' + r + '" title="' + byRarity[r] + ' ' + r +
+                   ' card' + (byRarity[r] === 1 ? '' : 's') +
+                   ' — rarity follows how hard the word is">' + r + ' ' + byRarity[r] + '</span>';
           }).join("") +
         '</div>' +
       '</div>' +
@@ -4839,7 +4884,11 @@ function renderResult(p) {
         '<div class="result-num' + (s.won ? "" : " short") + '">' + headline + '</div>' +
         (s.won && !s.levelUp && stillShort.length
           ? '<div class="chips">' + stillShort.slice(0, 8).map(function (k) {
-              return '<span class="chip"><span class="k">' + esc(k) + '</span></span>'; }).join("") + '</div>'
+              const lvForms = (s.level && s.level.forms) || courseOf(p).forms;
+              return '<span class="chip" title="' + esc(k) + ' — ' +
+                     esc(showForm(p, k, lvForms[lvForms.length - 1])) +
+                     ' · needs one more good answer before the next level opens">' +
+                     '<span class="k">' + esc(k) + '</span></span>'; }).join("") + '</div>'
           : '') +
         '<p>' + praise + (s.best > 2 ? " Best streak: " + s.best + "." : "") + '</p>' +
         (s.hits
@@ -4864,8 +4913,10 @@ function renderResult(p) {
       (weak.length
         ? '<div class="sheet stack"><span class="eyebrow">Worth another look</span>' +
           '<div class="chips">' + weak.map(function (k) {
-            return '<span class="chip weak"><span class="k">' + k + '</span>' +
-                   esc(showForm(p, k, courseOf(p).forms[courseOf(p).forms.length - 1])) +
+            return '<span class="chip weak" title="' + esc(k) +
+                   ' — missed this round, so it comes round more often until it sticks">' +
+                   '<span class="k">' + k + '</span>' +
+                   esc(showForm(p, k, ((s.level && s.level.forms) || courseOf(p).forms).slice(-1)[0])) +
                    speakerBtn(p, k, null) + '</span>';
           }).join("") + '</div>' +
           '<p>These come round more often until they stick.</p></div>'
@@ -4965,7 +5016,9 @@ function renderGarden(p) {
 
   const ladder = unitsOf(p).map(function (u, i) {
     const cls = i < count - 1 ? "learned" : i === count - 1 ? "current" : "";
-    return '<span class="rung ' + cls + '">' + (i + 1) + '</span>';
+    const tip = "Row " + (i + 1) + " · " + u.keys.join(" ") +
+      (i < count - 1 ? " — introduced" : i === count - 1 ? " — the row you are on" : " — not opened yet");
+    return '<span class="rung ' + cls + '" title="' + esc(tip) + '">' + (i + 1) + '</span>';
   }).join("");
 
   screenEl.innerHTML =
