@@ -1845,6 +1845,17 @@ function cardFace(p, key) {
 
 function cards(p) { if (!p.cards) p.cards = {}; return p.cards; }
 function ownedKeys(p) { return Object.keys(cards(p)); }
+/* How many cards are held, duplicates included - a second いぬ is still a card
+   in the box. This is a count, not a value; the value lives in walletValue. */
+function cardCount(p) {
+  return ownedKeys(p).reduce(function (n, k) { return n + cards(p)[k]; }, 0);
+}
+
+/* Everything the player is worth: the money the green stars paid, plus what
+   the collection would fetch. Two numbers that both mean "money" sitting side
+   by side in the top bar only invites the question of which one is real. */
+function netWorth(p) { return money(p) + walletValue(p); }
+
 function walletValue(p) {
   return ownedKeys(p).reduce(function (n, k) { return n + cardValue(k) * cards(p)[k]; }, 0);
 }
@@ -2731,10 +2742,10 @@ function renderTopbar() {
               '<span class="who-name">' + esc(p.name) + '</span></button>' +
             '<span class="stars green" title="Levels cleared without a single mistake">' +
               '★ ' + greenStars(p) + '</span>' +
-            '<span class="stars" title="Money from green stars — 1000 for level 1, 2000 for level 2, and so on">' +
-              cash(money(p)) + '</span>' +
-            '<button class="purse" id="toWallet" title="Your card collection">' +
-              '🃏 <span>' + walletValue(p) + '</span></button>';
+            '<span class="stars" title="Everything you are worth — green star money plus the value of your cards">' +
+              cash(netWorth(p)) + '</span>' +
+            '<button class="purse" id="toWallet" title="Cards collected — tap to open your wallet">' +
+              '🃏 <span>' + cardCount(p) + '</span></button>';
   }
   topbarEl.innerHTML = html;
   const home = document.getElementById("toHome");
@@ -4607,7 +4618,7 @@ function renderRoom(p) {
               ? 'A second copy — still <strong>+' + room.prize.gain + '</strong> to the collection. '
               : '') +
             (room.prize.perfect ? 'A clean run earned an extra draw. ' : '') +
-            'Collection now worth <strong>' + walletValue(p) + '</strong>.</p>' +
+            'Worth <strong>' + cash(netWorth(p)) + '</strong> altogether now.</p>' +
         '</div>' +
         '<div class="row">' +
           (roomCanOpen(p)
@@ -4749,7 +4760,7 @@ function renderWallet(p) {
   const owned = ownedKeys(p).sort(function (a, b) { return cardValue(b) - cardValue(a); });
   const byRarity = { legendary: 0, epic: 0, rare: 0, common: 0 };
   owned.forEach(function (k) { byRarity[cardRarity(cardValue(k))] += cards(p)[k]; });
-  const totalCards = owned.reduce(function (n, k) { return n + cards(p)[k]; }, 0);
+  const totalCards = cardCount(p);
 
   const grid = owned.map(function (k) {
     const face = cardFace(p, k), val = cardValue(k), n = cards(p)[k];
@@ -4765,12 +4776,12 @@ function renderWallet(p) {
     '<div class="stack">' +
       '<div class="sheet stack">' +
         '<span class="eyebrow">' + esc(p.name) + '’s wallet</span>' +
-        '<h2>' + walletValue(p) + ' in cards</h2>' +
+        '<h2>' + cash(netWorth(p)) + ' altogether</h2>' +
+        '<p><strong>' + cash(money(p)) + '</strong> from ' + greenStars(p) + ' green star' +
+          (greenStars(p) === 1 ? '' : 's') + ' — each pays 1000 times its level number — ' +
+          'and <strong>' + cash(walletValue(p)) + '</strong> held in cards.</p>' +
         '<p>' + totalCards + ' card' + (totalCards === 1 ? '' : 's') + ', ' + owned.length +
           ' different. Cards are worth more when the word is harder. Tap one to hear it.</p>' +
-        '<p><strong>' + cash(money(p)) + '</strong> in the money jar — ' +
-          greenStars(p) + ' green star' + (greenStars(p) === 1 ? '' : 's') +
-          ', each paying 1000 times its level number.</p>' +
         '<div class="raritybar">' +
           ["legendary", "epic", "rare", "common"].map(function (r) {
             return '<span class="rchip ' + r + '">' + r + ' ' + byRarity[r] + '</span>';
