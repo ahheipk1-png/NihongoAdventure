@@ -1291,7 +1291,8 @@ const ROWS = [
   { id:"wa", label:"わ行", kana:["わ","を","ん"] }
 ];
 
-// Ninja only. ぢ and づ are left out on purpose: they duplicate じ (ji) and
+// The dakuten rows, taught after the plain ones. ぢ and づ are left out on
+// purpose: they duplicate じ (ji) and
 // ず (zu), which would give a matching board two correct answers. They are
 // rare in modern Japanese and appear in the garden as reference only.
 const DAKUTEN_ROWS = [
@@ -1634,26 +1635,20 @@ const VOCAB = {
   ]
 };
 
+/* One setting for everybody. Four choices, both directions, a second try when
+   you slip, and every game. It sits where Explorer sat - so nobody's ladder
+   moves under them - with Sprout's kindness about a slip, which the two-tries
+   rule now makes safe: guessing was measured at nought to four per cent
+   against it, and a child who knows the material passes every time. */
 const TIERS = {
-  sprout: {
-    label:"Sprout", blurb:"Three choices, a gentle clock, and a second try when you slip.",
-    choices:3, reverse:0, retry:true, roundLen:8,
-    power:{ quota:10, drain:2.6, refill:24, penalty:6 },
-    modes:["match","listen","pairs","fruit","word"], dakuten:false
-  },
-  explorer: {
-    label:"Explorer", blurb:"Four choices, both directions, and streaks to chase.",
-    choices:4, reverse:0.35, retry:false, roundLen:12,
-    power:{ quota:10, drain:4.0, refill:18, penalty:8 },
-    modes:["match","listen","pairs","fruit","word","fish"], dakuten:false
-  },
-  ninja: {
-    label:"Ninja", blurb:"Six choices, optional typing, and が/ざ/だ/ば/ぱ once the basics are solid.",
-    choices:6, reverse:0.4, retry:false, roundLen:15,
-    power:{ quota:14, drain:4.2, refill:18, penalty:8 },
+  player: {
+    label:"Player", blurb:"Four choices, both directions, and a second try when you slip.",
+    choices:4, reverse:0.35, retry:true, roundLen:12,
+    power:{ quota:10, drain:3.6, refill:20, penalty:8 },
     modes:["match","listen","pairs","fruit","word","fish"], dakuten:true
   }
 };
+const ONE_TIER = "player";
 
 
 /* ---------- katakana loanwords, for Word Building ---------- */
@@ -2424,7 +2419,8 @@ function save() { store.write(state); }
 function currentProfile() {
   return state.profiles.find(function (p) { return p.id === state.activeId; }) || null;
 }
-function tierOf(p) { return TIERS[p.tier] || TIERS.explorer; }
+// There is one tier; a saved profile naming an old one still finds it.
+function tierOf(p) { return TIERS[ONE_TIER]; }
 function allRows(p) { return unitsOf(p); }
 // A box is {b: level, t: when it was last answered}. Older saves stored a bare
 // number; both shapes are read here so nothing has to be migrated eagerly.
@@ -3394,18 +3390,11 @@ function renderProfileEditor(p) {
   if (!draft) {
     draft = {
       name: p ? p.name : "", face: p ? p.face : pick(FACES),
-      tier: p ? p.tier : "explorer", typing: p ? !!p.typing : false,
+      tier: ONE_TIER, typing: p ? !!p.typing : false,
       unlockAll: p ? !!p.unlockAll : false,
       pace: (p && p.pace) || "normal"
     };
   }
-
-  const tiers = Object.keys(TIERS).map(function (key) {
-    const t = TIERS[key];
-    return '<button class="tier" data-tier="' + key + '" aria-pressed="' + (draft.tier === key) + '">' +
-             '<span class="tier-name">' + t.label + '</span>' +
-             '<span class="tier-sub">' + esc(t.blurb) + '</span></button>';
-  }).join("");
 
   const faces = FACES.map(function (f) {
     return '<button class="face" data-face="' + f + '" aria-pressed="' + (draft.face === f) + '" aria-label="Avatar ' + f + '">' + f + '</button>';
@@ -3421,8 +3410,6 @@ function renderProfileEditor(p) {
         '<div class="faces">' + faces + '</div>' +
       '</div>' +
       '<div class="sheet stack">' +
-        '<span class="eyebrow">Level</span>' +
-        '<div class="tiers">' + tiers + '</div>' +
         '<span class="eyebrow">Speed of the power bar</span>' +
         '<div class="paces">' +
           [["normal","Normal"],["gentle","Gentle"],["off","No timer"]].map(function (o) {
@@ -3433,11 +3420,9 @@ function renderProfileEditor(p) {
         '<label class="row" style="gap:8px;font-weight:700;font-size:14.5px;cursor:pointer">' +
           '<input type="checkbox" id="unlockAllIn"' + (draft.unlockAll ? " checked" : "") + ' style="width:19px;height:19px">' +
           'Open every topic now (skip the order)</label>' +
-        (draft.tier === "ninja"
-          ? '<label class="row" style="gap:8px;font-weight:700;font-size:14.5px;cursor:pointer">' +
-              '<input type="checkbox" id="typingIn"' + (draft.typing ? " checked" : "") + ' style="width:19px;height:19px">' +
-              'Type the answer in Match instead of tapping</label>'
-          : "") +
+        '<label class="row" style="gap:8px;font-weight:700;font-size:14.5px;cursor:pointer">' +
+          '<input type="checkbox" id="typingIn"' + (draft.typing ? " checked" : "") + ' style="width:19px;height:19px">' +
+          'Type the answer in Match instead of tapping</label>' +
       '</div>' +
       '<div class="row">' +
         '<button class="btn btn-primary" id="saveP">' + (isNew ? "Start playing" : "Save") + '</button>' +
@@ -3452,9 +3437,6 @@ function renderProfileEditor(p) {
   nameIn.oninput = function () { draft.name = nameIn.value; };
   screenEl.querySelectorAll("[data-face]").forEach(function (b) {
     b.onclick = function () { draft.face = b.getAttribute("data-face"); renderProfileEditor(p); };
-  });
-  screenEl.querySelectorAll("[data-tier]").forEach(function (b) {
-    b.onclick = function () { draft.tier = b.getAttribute("data-tier"); renderProfileEditor(p); };
   });
   const fresh = document.getElementById("freshP");
   if (fresh) fresh.onclick = function () {
@@ -3483,7 +3465,7 @@ function renderProfileEditor(p) {
       state.activeId = np.id;
     } else {
       p.name = name; p.face = draft.face; p.tier = draft.tier; p.typing = draft.typing; p.unlockAll = draft.unlockAll; p.pace = draft.pace;
-      prog(p).level = Math.max(0, Math.min(prog(p).level || 0, ladderFor(p).length - 1));   // ninja → explorer shortens the ladder
+      prog(p).level = Math.max(0, Math.min(prog(p).level || 0, ladderFor(p).length - 1));   // a ladder can only ever be as long as it is
     }
     draft = null;
     save();
@@ -4406,7 +4388,7 @@ function buildQuestion(p) {
   const answer = nextKana(p, session.pool, lastPrompt);
   lastPrompt = answer;
   const fm = pickForms(p);
-  const typing = p.typing && t.dakuten && courseOf(p).kind === "kana" && fm.to === "romaji";
+  const typing = p.typing && courseOf(p).kind === "kana" && fm.to === "romaji";
   const options = shuffle([answer].concat(distractors(p, answer, t.choices - 1, session.pool, fm.to)));
   return { answer: answer, from: fm.from, to: fm.to, typing: typing, options: options };
 }
@@ -6351,7 +6333,7 @@ document.addEventListener("click", function (e) {
     if (saved && Array.isArray(saved.profiles)) state = saved;
   }
   state.profiles.forEach(function (p) {          // backfill older saves
-    if (!TIERS[p.tier]) p.tier = "explorer";
+    p.tier = ONE_TIER;
     if (!p.progress) {                           // pre-courses saves kept one flat set
       p.progress = { hiragana: { level: p.level || 0, boxes: p.boxes || {} } };
     }
@@ -6375,6 +6357,7 @@ document.addEventListener("click", function (e) {
     delete p.unlocked; delete p.lastKind; delete p.level;
     prog(p).level = Math.max(0, Math.min(prog(p).level, ladderFor(p).length - 1));
     delete p.stars;                       // the points counter is gone
+    p.tier = ONE_TIER;                    // tiers are gone; everyone plays the same game
     if (!p.cards) p.cards = {};
     Object.keys(p.progress).forEach(function (cid) {
       if (!p.progress[cid].perfect) p.progress[cid].perfect = {};
