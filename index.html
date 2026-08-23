@@ -1991,10 +1991,13 @@ const COURSE_ICONS = {
    Every item a player can meet is also a card. A card's value comes from how
    hard the item is - the topic it belongs to, how long it is, and whether it is
    kanji - so a collection is worth more the further the child has travelled. */
+/* On the same scale as everything else: a common kana card is $50, a grammar
+   sentence $275. A Card Room run of fifteen questions is then worth roughly a
+   fifth of a level, which is about what a quarter of an hour should buy. */
 const COURSE_CARD_VALUE = {
-  hiragana: 10, katakana: 12, kanamix: 16, numbers: 18, animals: 22,
-  weekdays: 22, verbs: 26, nouns: 26, adjectives: 30, greetings: 30,
-  n5: 40, grammar: 55, kanji: 45
+  hiragana: 50, katakana: 60, kanamix: 80, numbers: 90, animals: 110,
+  weekdays: 110, verbs: 130, nouns: 130, adjectives: 150, greetings: 150,
+  n5: 200, grammar: 275, kanji: 225
 };
 
 // Which topic a card belongs to. Kanji are merged into every course's item map
@@ -2048,7 +2051,12 @@ function sightStage(p, jp) { const v = (p.landmarks || {})[jp]; return typeof v 
    to about $2.49M across all 182 levels, and gilding all 470 places at these
    prices costs about $2.33M - so finishing the map is a real end to aim at
    with a little to spare, rather than something bought by the halfway mark. */
-function stagePrice(k, stage) { return (stage === 1 ? 450 : 225) * k; }
+/* $150 a step up a prefecture's list to build, half that to light and to
+   gild. A prefecture costs $8,250 to build and $16,500 to finish, so a card
+   is five or six levels' work - and all 47 come to $388,000 against the
+   $540,000 a child earns by doing everything, which is the margin that makes
+   it hard but not hopeless. */
+function stagePrice(k, stage) { return (stage === 1 ? 150 : 75) * k; }
 function prefBuilt(p, pid)  { return sightsOf(pid).filter(function (sg) { return sightStage(p, sg.jp) >= 1; }).length; }
 function prefGolden(p, pid) { return sightsOf(pid).filter(function (sg) { return sightStage(p, sg.jp) >= 3; }).length; }
 function nextSight(p, pid)  { return sightsOf(pid).filter(function (sg) { return sightStage(p, sg.jp) === 0; })[0] || null; }
@@ -2120,9 +2128,10 @@ const CARD_SETS = (function () {
 })();
 
 // Ten times what the cards are worth, rounded up to a round hundred.
+// A completed set is worth about what a level is: the cards over again.
 function setBonus(set) {
   const v = set.keys.reduce(function (n, k) { return n + cardValue(k); }, 0);
-  return Math.ceil(v * 10 / 100) * 100;
+  return Math.ceil(v / 100) * 100;
 }
 
 function setOwned(p, set) {
@@ -2148,15 +2157,19 @@ function checkSets(p) {
 
 function cardValue(key) {
   const home = cardHome(key);
-  if (home === "pref") return 100;               // legendary, and only ever earned
+  if (home === "pref") return 500;               // legendary, and only ever earned
   let v = COURSE_CARD_VALUE[home] || 20;
-  v += Math.max(0, key.length - 1) * 5;          // longer items are harder
-  if (home === "grammar") v += 10;               // whole sentences
+  v += Math.max(0, key.length - 1) * 25;         // longer items are harder
+  if (home === "grammar") v += 50;               // whole sentences
   return v;
 }
 
 function cardRarity(v) {
-  return v >= 60 ? "legendary" : v >= 40 ? "epic" : v >= 24 ? "rare" : "common";
+  /* Cut where the cards actually fall, not at round numbers: the N5 vocabulary
+     is a huge lump at 225-275, so a threshold just under it made half the
+     collection "epic". This gives roughly 36% common, 42% rare, 14% epic and
+     8% legendary - a pyramid, which is what the words are meant to mean. */
+  return v >= 475 ? "legendary" : v >= 275 ? "epic" : v >= 200 ? "rare" : "common";
 }
 
 function cardAnswerKind(key) {
@@ -2289,8 +2302,12 @@ function greenStars(p) {
 /* Green stars pay. Level 1 pays 1000, level 2 pays 2000, counted inside its own
    topic - and only the first time that level is cleared with nothing missed, so
    replaying an easy level cannot be turned into an income. */
-const STAR_PAY = 1000;
-function starPay(idx) { return STAR_PAY * ((idx || 0) + 1); }
+/* A level pays a flat $200 plus $100 a rung. Flat 1000-a-rung grew with the
+   square of a topic's length, so finishing hiragana paid two thirds of a
+   million and nothing after it mattered. This keeps a late level worth about
+   fourteen times an early one rather than forty. */
+const STAR_BASE = 200, STAR_STEP = 100;
+function starPay(idx) { return STAR_BASE + STAR_STEP * ((idx || 0) + 1); }
 function money(p) { return (p && typeof p.money === "number" && isFinite(p.money)) ? p.money : 0; }
 function addMoney(p, n) { p.money = money(p) + n; return p.money; }
 function cash(n) { return "$" + String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ","); }
@@ -3163,7 +3180,11 @@ function boardTag() {
    question or board; a round with a tip in it cannot earn a green star.
    ------------------------------------------------------------ */
 
-function tipPrice(lv) { return 100 * ((lv && lv.number) || 1); }
+/* A tenth of what the level pays. The real price of a tip is the green star
+   it forfeits - the whole level's money - so the cash on top is a token. */
+function tipPrice(lv) {
+  return Math.max(50, Math.round(starPay(((lv && lv.number) || 1) - 1) / 10 / 10) * 10);
+}
 
 // What the board is about right now: the item and the form being answered.
 function tipTarget(p) {
