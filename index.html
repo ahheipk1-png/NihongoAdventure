@@ -1444,9 +1444,9 @@ const VOCAB = {
 
 const TIERS = {
   sprout: {
-    label:"Sprout", blurb:"Three choices, no timer, and wrong answers just try again.",
+    label:"Sprout", blurb:"Three choices, a gentle clock, and wrong answers cost nothing.",
     choices:3, reverse:0, retry:true, roundLen:8,
-    power:{ quota:6,  drain:2.6, refill:24, penalty:0 },
+    power:{ quota:10, drain:2.6, refill:24, penalty:0 },
     modes:["match","listen","pairs","fruit","word"], dakuten:false
   },
   explorer: {
@@ -4540,10 +4540,14 @@ const QUIZ_LEN = { draw: 5, room: 15 };
 function startQuiz(p, kind) {
   stopLoops();
   const pool = roomPool(p);
-  // Distinct items only - a run that repeats itself stops being a check and
-  // starts being a chore. With too little to ask anything fair the run is
-  // empty and the card is simply given, which is what happens on level one.
-  const keys = pool.length >= QUIZ_FLOOR ? quizKeys(p, QUIZ_LEN[kind] || 5) : [];
+  /* Distinct items only - a run that repeats itself stops being a check and
+     starts being a chore. Two cases hand the card straight over: too little
+     learned to ask anything fair, and - for the draw a level has earned - an
+     empty collection, because "do you recognise your cards" is not a question
+     you can put to a child who has none. That is level one. */
+  const holdsCards = ownedKeys(p).length > 0;
+  const asks = (kind === "room" || holdsCards) && pool.length >= QUIZ_FLOOR;
+  const keys = asks ? quizKeys(p, QUIZ_LEN[kind] || 5) : [];
   room = { id: ++roomSeq, kind: kind, need: keys.length, keys: keys, idx: 0,
            done: 0, missed: 0, strikes: 0, marks: [], restarts: 0,
            over: false, q: null, prize: null };
@@ -4599,6 +4603,7 @@ function awardCard(p) {
   room.prize = { key: key, already: already, perfect: paid && perfect,
                  gain: cardValue(key) };
   save();
+  renderTopbar();          // the badges are about to be read against the prize
   audio.star();
 }
 
