@@ -44,6 +44,37 @@ def clips_present():
                 if n.endswith(".mp3") and os.path.getsize(os.path.join(AUDIO, n)) > 512])
 
 
+def model_alive():
+    """One probe before committing to a half-hour run.
+
+    Two ways this fails now. HTTP 429 code 4006 is the daily allowance, which
+    does come back. HTTP 500 code 3043 is the model itself broken on
+    Cloudflare's side - on 2026-08-23 every request failed that way, including
+    plain English, while a deliberately malformed body still got a clean schema
+    error, so the request shape was never the problem. Both are worth stopping
+    for: speak.py retries each of the 1076 words three times with backoff, so a
+    doomed run costs ~30 minutes and produces nothing.
+    """
+    import importlib.util, urllib.request, urllib.error
+    spec = importlib.util.spec_from_file_location("speak", SPEAK)
+    m = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(m)
+    tok = m.find_token()
+    acct = m.find_account(tok)
+    body = json.dumps({"prompt": u"いぬ", "lang": "jp"}).encode("utf-8")
+    req = urllib.request.Request(
+        "%s/accounts/%s/ai/run/%s" % (m.API, acct, m.MODEL), data=body, method="POST",
+        headers={"Authorization": "Bearer " + tok, "Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=120) as r:
+            r.read()
+            return True, "answering (%s)" % r.headers.get("Content-Type", "?")
+    except urllib.error.HTTPError as e:
+        return False, "HTTP %s %s" % (e.code, e.read()[:160].decode("utf-8", "replace"))
+    except Exception as e:
+        return False, str(e)[:160]
+
+
 def main():
     for path, what in ((WORDS, "word list"), (SPEAK, "speak.py"), (GAME, "the game")):
         if not os.path.exists(path):
@@ -55,6 +86,12 @@ def main():
     print("Nihongo Adventure - pronunciation release")
     print("%d clips wanted, %d already generated" % (total, before))
     print("=" * 62)
+
+    ok, why = model_alive()
+    print("model probe: %s" % why)
+    if not ok:
+        sys.exit("\nStopping: MeloTTS is not answering, so this run would only produce failures.\n"
+                 "Nothing was changed and finished clips are kept - re-run another day.")
 
     # 1. generate whatever is still missing
     run([sys.executable, SPEAK, WORDS, "--out", AUDIO, "--lang", "jp", "--workers", "4"])

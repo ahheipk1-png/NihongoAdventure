@@ -73,7 +73,10 @@ for j in jobs:
         missing += 1
         continue
     b = open(src, "rb").read()
-    audio[text] = "data:%s;base64,%s" % (mime, base64.b64encode(b).decode("ascii"))
+    # A job may name the key it is stored under. The homophones need this: the
+    # clip says はし but has to be findable as 橋, 箸 and 端, because those are
+    # the item keys and speech.can() looks a clip up by item.
+    audio[j.get("key") or text] = "data:%s;base64,%s" % (mime, base64.b64encode(b).decode("ascii"))
     bytes_used += len(b)
 
 if not audio:
