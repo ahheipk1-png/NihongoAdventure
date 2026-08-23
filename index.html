@@ -1611,9 +1611,9 @@ const VOCAB = {
 
 const TIERS = {
   sprout: {
-    label:"Sprout", blurb:"Three choices, a gentle clock, and wrong answers cost nothing.",
+    label:"Sprout", blurb:"Three choices, a gentle clock, and two tries at every question.",
     choices:3, reverse:0, retry:true, roundLen:8,
-    power:{ quota:10, drain:2.6, refill:24, penalty:0 },
+    power:{ quota:10, drain:2.6, refill:24, penalty:6 },
     modes:["match","listen","pairs","fruit","word"], dakuten:false
   },
   explorer: {
@@ -2023,7 +2023,12 @@ const TYPE_EMOJI = { shrine: "⛩️", temple: "🛕", castle: "🏯", tower: "�
 function sightsOf(pid) { return SIGHTS_BY_PREF[pid] || []; }
 function sightStage(p, jp) { const v = (p.landmarks || {})[jp]; return typeof v === "number" ? v : 0; }
 // Building costs $200 a step up the prefecture's list; each polish costs half.
-function stagePrice(k, stage) { return (stage === 1 ? 200 : 100) * k; }
+/* Building costs $450 a step up the prefecture's list, each polish half that.
+   Measured against what the game pays: green stars, set bonuses and cards come
+   to about $2.49M across all 182 levels, and gilding all 470 places at these
+   prices costs about $2.33M - so finishing the map is a real end to aim at
+   with a little to spare, rather than something bought by the halfway mark. */
+function stagePrice(k, stage) { return (stage === 1 ? 450 : 225) * k; }
 function prefBuilt(p, pid)  { return sightsOf(pid).filter(function (sg) { return sightStage(p, sg.jp) >= 1; }).length; }
 function prefGolden(p, pid) { return sightsOf(pid).filter(function (sg) { return sightStage(p, sg.jp) >= 3; }).length; }
 function nextSight(p, pid)  { return sightsOf(pid).filter(function (sg) { return sightStage(p, sg.jp) === 0; })[0] || null; }
@@ -2938,13 +2943,21 @@ const DRAIN_RATE = { fish: 0.85, match: 0.75, fruit: 0.7, listen: 0.65, word: 0.
 const PACE = { normal: 1, gentle: 0.45, off: 0 };
 function paceOf(p) { return PACE[p.pace] !== undefined ? PACE[p.pace] : 1; }
 
+/* Every answer costs a little power, right or wrong. Without it the clock runs
+   in seconds while a wrong answer costs a flat penalty, so the cheapest way
+   through a level is to tap as fast as possible - measured, tapping every 0.7s
+   beat tapping every 2s in every game. Charging the answer rather than only
+   the second makes guessing cost something no matter how fast it is done. */
+const ANSWER_COST = 5;
+
 function powerInit(p, mode) {
   const base = tierOf(p).power;
   session.cfg = {
     quota: base.quota,
     drain: base.drain * (DRAIN_RATE[mode] || 0.75) * paceOf(p),
     refill: base.refill,
-    penalty: base.penalty
+    penalty: base.penalty,
+    cost: ANSWER_COST
   };
   session.power = 100;
   session.quota = base.quota;
@@ -2982,9 +2995,10 @@ function drawPower() {
 }
 
 // Returns true when the quota is filled, so the caller can end the round.
-function powerGain(p) {
-  session.power = Math.min(100, session.power + session.cfg.refill);
-  session.score += 1;
+// `n` scores more than one - Word Building completes a whole word at once.
+function powerGain(p, n) {
+  session.power = Math.min(100, session.power + session.cfg.refill - session.cfg.cost);
+  session.score += (n || 1);
   drawPower();
   announce("Correct. " + session.score + " of " + session.quota +
            ", power " + Math.round(session.power) + " percent.");
@@ -2995,7 +3009,7 @@ function powerGain(p) {
 function powerLose(p) {
   session.wrongs += 1;
   session.wrongHere = true;
-  session.power = Math.max(0, session.power - session.cfg.penalty);
+  session.power = Math.max(0, session.power - session.cfg.penalty - session.cfg.cost);
   drawPower();
   announce("Not that one. Power " + Math.round(session.power) + " percent.");
 }
@@ -4297,7 +4311,7 @@ function startSession(p, mode) {
     mode: mode, level: info, pool: five, levelPool: full, levelUp: null,
     usedThisRound: five.slice(), boards: 0,
     total: 0, hits: 0, streak: 0, best: 0,
-    firstTry: 0, wrongs: 0, wrongHere: false, tips: 0, tipHere: false,
+    firstTry: 0, wrongs: 0, wrongHere: false, tips: 0, tipHere: false, triesHere: 0,
     marks: [], missed: {}, locked: false, answeredWrongHere: false,
     q: null, raf: null, powerRaf: null, timer: null
   };
@@ -4481,10 +4495,13 @@ function answerMatch(p, chosen, btn) {
     cell.classList.add("good");
     speech.can(q.answer) && speech.say(q.answer);
     if (session.answeredWrongHere) {
-      // Getting there on the second try still counts for something, the way it
-      // does in Fruit Basket - half the power, and the quota moves.
+      /* A question got wrong gives nothing back - no quota, and no power
+         either. Half a refill on a retry was the last thing keeping random
+         tapping alive on Sprout: three choices and two tries meant guessing
+         paid for itself. It still counts for the knowledge model, and the
+         child still finishes the question; it just is not worth power. */
       bump(p, q.answer, true);
-      session.power = Math.min(100, session.power + session.cfg.refill / 2);
+      session.power = Math.max(0, session.power - session.cfg.cost);   // got wrong: no point, no power
       drawPower();
       save();
     }
@@ -4500,9 +4517,15 @@ function answerMatch(p, chosen, btn) {
   cell.classList.add("shake");
   setTimeout(function () { cell.classList.remove("shake"); }, 400);
 
-  if (!session.answeredWrongHere) { credit(p, q.answer, false); powerLose(p); session.answeredWrongHere = true; }
+  session.triesHere = (session.triesHere || 0) + 1;
+  if (!session.answeredWrongHere) { credit(p, q.answer, false); session.answeredWrongHere = true; }
+  powerLose(p);                      // every wrong answer costs, not just the first
 
-  if (t.retry) {                     // Sprout keeps trying so they end on a win
+  /* Sprout gets a second try rather than an unlimited one. Unlimited retries
+     with no penalty meant a child tapping at random passed every level -
+     measured at 100%, even tapping slowly. Two tries still means a wrong
+     answer is not the end of the question; it just is not free. */
+  if (t.retry && session.triesHere < 2) {
     if (btn) { btn.classList.add("wrong", "dim"); btn.disabled = true; }
     return;
   }
@@ -4525,6 +4548,7 @@ function advanceMatch(p) {
   session.locked = false;
   session.paused = false;
   session.answeredWrongHere = false;
+  session.triesHere = 0;
   session.tipHere = false;
   // Rotate the working five every few questions so the kana keep changing.
   session.asked = (session.asked || 0) + 1;
@@ -4553,6 +4577,7 @@ function setupPairs(p) {
   session.boardPairs = session.pool.length;
   session.boards += 1;
   session.tipHere = false;
+  session.missedPairs = {};
 }
 
 function renderPairs(p) {
@@ -4624,7 +4649,11 @@ function flip(p, i) {
     a.done = true; b.done = true;
     session.boardMatched += 1;
     credit(p, a.kana, true);
-    const filled = powerGain(p);
+    // Found after a wrong guess: the pair still clears, but it does not count
+    // towards the quota - otherwise turning cards at random fills it.
+    const wasMissed = !!(session.missedPairs && session.missedPairs[a.kana]);
+    if (wasMissed) session.power = Math.max(0, session.power - session.cfg.cost);   // got wrong: no point, no power
+    const filled = wasMissed ? false : powerGain(p);
     setTimeout(function () {
       if (!session || session.ended || screen !== "pairs") return;
       session.up = []; session.locked = false;
@@ -4640,6 +4669,9 @@ function flip(p, i) {
     audio.bad();
     const tested = a.open ? b : a;      // the hidden card is the one being identified
     credit(p, tested.kana, false);
+    if (!session.missedPairs) session.missedPairs = {};
+    session.missedPairs[a.kana] = true;
+    session.missedPairs[b.kana] = true;
     powerLose(p);
     setTimeout(function () {
       if (!session || session.ended || screen !== "pairs") return;
@@ -4752,6 +4784,15 @@ function wireFruit(p) {
       it.placed = true;
       session.boardMatched += 1;
       credit(p, it.kana, true);
+      // A fruit that was already dropped in the wrong bag still goes home, but
+      // it does not move the quota - the question was got wrong.
+      if (it.missed) {
+        session.power = Math.max(0, session.power - session.cfg.cost);   // got wrong: no point, no power
+        drawPower();
+        if (session.boardMatched >= session.boardPairs) { audio.done(); refreshPool(p); setupFruit(p); }
+        renderFruit(p);
+        return;
+      }
       if (powerGain(p)) { audio.star(); renderFruit(p); setTimeout(function () { finish(p); }, 420); return; }
       if (session.boardMatched >= session.boardPairs) {   // board cleared - deal a fresh five
         audio.done();
@@ -4761,7 +4802,8 @@ function wireFruit(p) {
       renderFruit(p);
     } else {
       audio.bad();
-      credit(p, it.kana, false);
+      if (!it.missed) credit(p, it.kana, false);
+      it.missed = true;
       powerLose(p);
       fruitEl.classList.add("nope");
       bagEl.classList.add("nope");
@@ -4885,6 +4927,7 @@ function loadWord(p) {
   session.wordLetters = letters;
   session.filled = letters.map(function () { return null; });
   session.tipHere = false;
+  session.wordMissed = 0;
 
   // Two decoy characters so it is a spelling task, not just re-ordering.
   // They are drawn from the letters used by other words in this course, which
@@ -4959,8 +5002,24 @@ function placeLetter(p, ti, si) {
     // topic; otherwise the word is the item and it is credited on completion.
     const items = courseOf(p).items;
     if (items[t.k]) credit(p, t.k, true); else scoreOnly(p);
-    const filled = powerGain(p);
+    /* A letter tops the power up but does not score. Scoring per letter made a
+       four-letter word worth four questions, which is why random tile-dropping
+       passed this game 56% of the time on Explorer while every other game held
+       under 25%. The word is the question; it is worth two. */
     const solved = session.filled.indexOf(null) === -1;
+    let filled = false;
+    /* A word spelled straight through is worth two; one fumble still earns
+       one; from two fumbles on it is worth nothing. All-or-nothing was too
+       hard a line - a child getting four letters in five right passed only
+       three rounds in ten, which is not what 80% should feel like. */
+    if (solved) {
+      const slips = session.wordMissed || 0;
+      if (slips < 2) filled = powerGain(p, slips === 0 ? 2 : 1);
+      else { session.power = Math.max(0, session.power - session.cfg.cost); drawPower(); }
+    } else {
+      session.power = Math.max(0, session.power - session.cfg.cost);   // got wrong: no point, no power
+      drawPower();
+    }
     if (solved && !items[t.k] && items[entry.w]) credit(p, entry.w, true);
     if (solved && speech.can(entry.w)) speech.say(entry.w);
     renderWord(p);
@@ -4995,6 +5054,7 @@ function placeLetter(p, ti, si) {
   } else {
     session.streak = 0;
   }
+  session.wordMissed = (session.wordMissed || 0) + 1;   // slips on this word
   powerLose(p);
   const tileEl = screenEl.querySelector('[data-t="' + ti + '"]');
   const slotEl = screenEl.querySelector('[data-s="' + si + '"]');
@@ -5199,6 +5259,14 @@ function renderFish(p) {
       f.el.classList.add("caught");
       credit(p, f.kana, true);
       setTimeout(function () { if (f.el.parentNode) f.el.parentNode.removeChild(f.el); }, 340);
+      // Caught after grabbing the wrong fish: it counts as caught, not as a
+      // point, so tapping every fish in the pond gets nowhere.
+      if (session.missedTarget) {
+        session.power = Math.max(0, session.power - session.cfg.cost);   // got wrong: no point, no power
+        drawPower();
+        newTarget();
+        return;
+      }
       if (powerGain(p)) { audio.star(); finish(p); return; }
       newTarget();
       return;
@@ -5451,9 +5519,21 @@ function wheelKeys(p) {
     keys.sort(function (x, y) { return cardValue(y) - cardValue(x); });
     keys.length = Math.min(keys.length, WHEEL_SLICES);
   }
+  /* Questions lost take the dearest cards off the wheel, two slices being the
+     floor. The card itself is not in doubt - the level earned it - but a run
+     answered by tapping at random spins for the cheap ones, and a run answered
+     properly spins for all six. It is the difference the gate is there to
+     make, without ever refusing a child the card they came for. */
+  const lost = (room.marks || []).filter(function (m) { return m === "miss"; }).length;
+  if (lost) {
+    keys.sort(function (x, y) { return cardValue(y) - cardValue(x); });
+    keys.splice(0, Math.min(lost, Math.max(0, keys.length - 2)));
+  }
   // A small pool repeats what it has rather than showing a gap.
+  const want = Math.max(2, WHEEL_SLICES - lost);
   const n0 = keys.length;
-  while (n0 && keys.length < WHEEL_SLICES) keys.push(keys[keys.length % n0]);
+  while (n0 && keys.length < want) keys.push(keys[keys.length % n0]);
+  if (keys.length > want) keys.length = want;
   return shuffle(keys);
 }
 
@@ -5484,9 +5564,10 @@ function wheelAngle(el) {
 
 // Which slice sits under a pin fixed at the top when the wheel has turned `deg`
 // clockwise: the slice whose own angle is 360 - deg.
-function wheelIndexAt(deg) {
-  const slice = 360 / WHEEL_SLICES;
-  return Math.floor(((360 - (deg % 360)) % 360) / slice) % WHEEL_SLICES;
+function wheelIndexAt(deg, slices) {
+  const n = slices || WHEEL_SLICES;
+  const slice = 360 / n;
+  return Math.floor(((360 - (deg % 360)) % 360) / slice) % n;
 }
 
 // The card actually joins the collection here, once the wheel has stopped.
@@ -5538,7 +5619,8 @@ function renderRoom(p) {
   if (room.wheel) {
     const w = room.wheel;
     const runId = room.id;
-    const slice = 360 / WHEEL_SLICES;
+    const slices = w.keys.length;
+    const slice = 360 / slices;
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const stops = [], labels = [];
     w.keys.forEach(function (k, i) {
@@ -5562,7 +5644,8 @@ function renderRoom(p) {
             (w.perfect ? ' · not one missed' : '') + '</span>' +
           '<h2 style="text-align:center">🎡 Stop the wheel</h2>' +
           '<p style="text-align:center;font-size:13px;margin:0">' +
-            'Six cards, six prices. Tap <b>STOP</b> and you keep whatever the pin lands on.' +
+            slices + ' cards, ' + slices + ' prices. Tap <b>STOP</b> and you keep whatever the pin lands on.' +
+            (slices < WHEEL_SLICES ? ' Questions missed took the dearest ones off.' : '') +
             (w.perfect ? ' A clean run put dearer cards on it.' : '') + '</p>' +
           '<div class="wheel-wrap">' +
             '<span class="wheel-pin" aria-hidden="true"></span>' +
@@ -5586,7 +5669,7 @@ function renderRoom(p) {
       if (w.ticker) clearInterval(w.ticker);
       w.ticker = setInterval(function () {
         if (!(screen === "room" && room && room.wheel === w)) { clearInterval(w.ticker); w.ticker = null; return; }
-        w.step = (w.step + 1) % WHEEL_SLICES;
+        w.step = (w.step + 1) % slices;
         const node = document.getElementById("wheel");
         if (node) node.style.transform = "rotate(" + (w.step * slice) + "deg)";
       }, 450);
@@ -5598,7 +5681,7 @@ function renderRoom(p) {
         let cur;
         if (w.ticker) { clearInterval(w.ticker); w.ticker = null; cur = (w.step * slice) % 360; }
         else cur = wheelAngle(el);
-        const idx = wheelIndexAt(cur);
+        const idx = wheelIndexAt(cur, slices);
         const key = w.keys[idx];
         w.stopping = true;
         w.landed = key;
@@ -5734,7 +5817,9 @@ function renderRoom(p) {
     '</div>';
 
   const runId = room.id;
-  const strict = room.kind === "room";
+  // Two tries at a question in both runs; only the paid room strikes you out.
+  const strict = true;
+  const strikesOut = room.kind === "room";
 
   screenEl.querySelectorAll("[data-r]").forEach(function (b) {
     b.onclick = function () {
@@ -5767,7 +5852,7 @@ function renderRoom(p) {
       setTimeout(function () { b.classList.remove("nope"); }, 400);
       save();
 
-      if (!strict || q.wrongs < ROOM_TRIES) {
+      if (q.wrongs < ROOM_TRIES) {
         if (strict) {
           const hint = document.getElementById("roomHint");
           if (hint) hint.textContent = "One more try on this card — the next wrong tap loses it.";
@@ -5780,7 +5865,7 @@ function renderRoom(p) {
       // the strike, and move on - the question does not come round again.
       q.answered = true;
       room.marks.push("miss");
-      room.strikes += 1;
+      if (strikesOut) room.strikes += 1;
       screenEl.querySelectorAll(".ans").forEach(function (x) {
         x.disabled = true;
         if (x.getAttribute("data-r") === q.key) x.classList.add("correct");
@@ -5793,7 +5878,7 @@ function renderRoom(p) {
       save();
       setTimeout(function () {
         if (!(screen === "room" && room && room.id === runId)) return;
-        if (room.strikes >= ROOM_STRIKES) room.over = true;
+        if (strikesOut && room.strikes >= ROOM_STRIKES) room.over = true;
         else roomAdvance(p);
         renderRoom(p);
       }, 1150);
