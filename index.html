@@ -1398,7 +1398,32 @@ const WORDS = [
   { w:"ほん",   en:"book",       pic:"📖", row:9 },
   { w:"わに",   en:"crocodile",  pic:"🐊", row:9 },
   { w:"みかん", en:"mandarin",   pic:"🍊", row:9 },
-  { w:"れもん", en:"lemon",      pic:"🍋", row:9 }
+  { w:"れもん", en:"lemon",      pic:"🍋", row:9 },
+  { w:"うえ", en:"up, above", pic:"⬆️", row:0 },
+  { w:"きく", en:"to listen", pic:"👂", row:1 },
+  { w:"いけ", en:"pond", pic:"🏞️", row:1 },
+  { w:"せき", en:"seat", pic:"💺", row:2 },
+  { w:"そら", en:"sky", pic:"☁️", row:8 },
+  { w:"つき", en:"moon", pic:"🌙", row:3 },
+  { w:"ちち", en:"father", pic:"👨", row:3 },
+  { w:"てら", en:"temple", pic:"⛩️", row:8 },
+  { w:"とけい", en:"clock", pic:"🕒", row:3 },
+  { w:"ぬの", en:"cloth", pic:"🧵", row:4 },
+  { w:"にわ", en:"garden", pic:"🌳", row:9 },
+  { w:"ひも", en:"string", pic:"🧶", row:6 },
+  { w:"へや", en:"room", pic:"🛏️", row:7 },
+  { w:"めも", en:"memo", pic:"📝", row:6 },
+  { w:"よる", en:"night", pic:"🌙", row:8 },
+  { w:"れい", en:"zero", pic:"0️⃣", row:8 },
+  { w:"ろく", en:"six", pic:"6️⃣", row:8 },
+  { w:"わたし", en:"me", pic:"🧒", row:9 },
+  { w:"のり", en:"seaweed", pic:"🍣", row:8 },
+  { w:"ふゆ", en:"winter", pic:"⛄", row:7 },
+  { w:"はる", en:"spring", pic:"🌸", row:8 },
+  { w:"あめ", en:"rain", pic:"🌧️", row:6 },
+  { w:"ゆめ", en:"dream", pic:"💭", row:7 },
+  { w:"こえ", en:"voice", pic:"🗣️", row:1 },
+  { w:"ぬま", en:"marsh", pic:"🦟", row:6 }
 ];
 
 /* ============================================================
@@ -1611,7 +1636,7 @@ const VOCAB = {
 
 const TIERS = {
   sprout: {
-    label:"Sprout", blurb:"Three choices, a gentle clock, and two tries at every question.",
+    label:"Sprout", blurb:"Three choices, a gentle clock, and a second try when you slip.",
     choices:3, reverse:0, retry:true, roundLen:8,
     power:{ quota:10, drain:2.6, refill:24, penalty:6 },
     modes:["match","listen","pairs","fruit","word"], dakuten:false
@@ -3498,7 +3523,7 @@ const MODE_META = {
 // The level decides the game - the player never picks. New kana get the gentler
 // games; review levels rotate through the rest so a level always feels different
 // from the one before it.
-const LEARN_GAMES  = ["match", "listen", "pairs", "fruit"];
+const LEARN_GAMES  = ["match", "listen", "pairs", "word", "fruit"];
 const REVIEW_GAMES = ["word", "fish", "listen", "fruit", "pairs", "match"];
 const KANJI_GAMES  = ["match", "listen", "pairs", "fish", "fruit"];
 
@@ -3533,8 +3558,12 @@ function gameFitsLevel(p, game, keys) {
       reach[x.w] = 1;
     }
   });
-  const covered = keys.filter(function (k) { return reach[k]; }).length;
-  return covered >= Math.ceil(keys.length * 0.8);
+  /* Every item, not most of them. A level advances only once each of its own
+     items is solid, and Word Building can only credit what its words contain -
+     so a single uncovered kana means a level that can be won all evening and
+     never opens the next one. At 80% that was hiragana level 19, where れ
+     appears in no word at all. */
+  return keys.every(function (k) { return !!reach[k]; });
 }
 
 function gamesForLadder(p, ladder) {
