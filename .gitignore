@@ -13,3 +13,4 @@ audio-build/sample_out/
 audio-build/local_probe/
 audio-build/voice-sample.wav
 audio-build/probe*.json
+.kq-bk-*.html

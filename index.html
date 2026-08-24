@@ -1063,6 +1063,27 @@ button.board-tag.leave:focus-visible { outline: 2.5px solid var(--ai); outline-o
   border-radius: 8px; padding: 2px 8px;
 }
 .wcard-read { font-family: var(--font-kana); font-size: 11px; color: var(--ink-faint); }
+.cloud-pill {
+  font-size: 14px; line-height: 1; padding: 6px 9px; border-radius: 999px;
+  background: var(--ai-wash); color: var(--ai); border: 1px solid transparent;
+}
+.code-box {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 700;
+  font-size: 20px; letter-spacing: 3px; padding: 8px 14px; border-radius: 12px;
+  background: var(--ai-wash); color: var(--ai);
+}
+.code-box i { opacity: .45; font-style: normal; }
+.code-in {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 700;
+  font-size: 15px; letter-spacing: 2px; text-transform: uppercase; width: 8.5em;
+  padding: 8px 10px; border-radius: 10px; border: 2px solid var(--line);
+  background: var(--paper); color: var(--ink);
+}
+.code-in:focus { outline: none; border-color: var(--ai); }
+.linkish {
+  background: none; border: 0; padding: 0; font: inherit; color: var(--ai);
+  text-decoration: underline; cursor: pointer;
+}
 .study-arrow { color: var(--ink-faint); font-weight: 800; }
 .study-row.grammar { flex-direction: column; align-items: flex-start; gap: 4px; }
 .study-jp { font-family: var(--font-kana); font-weight: 700; font-size: 20px; line-height: 1.6; overflow-wrap: anywhere; }
@@ -2905,6 +2926,288 @@ const store = (function () {
   };
 })();
 
+/* ============================================================
+   2b. CLOUD SAVE
+   ============================================================ */
+
+/* The same progress on the laptop and on the desktop, without an account.
+
+   A family code minted by the server is the entire credential - a secret the
+   way a share link is a secret - because the people typing it are seven. It is
+   entered once on the second computer and never again.
+
+   Nothing here is allowed to make the game wait. Every change is saved locally
+   first, exactly as before; a few seconds later the same change is pushed, and
+   what comes back is merged in. Two computers that both played offline both
+   keep their afternoon: the server adds each one's earnings rather than
+   picking a winner (see functions/api/sync.js for the rules).
+
+   The Artifact build cannot reach the endpoint at all - its CSP blocks every
+   outside request - so the first call fails and the feature hides itself. */
+
+const cloud = (function () {
+  const ENDPOINT = "/api/sync";
+  const DEBOUNCE = 4000;
+  /* The Artifact build is served from a Claude domain and its CSP forbids
+     every outside request. Asking anyway would log a violation on every load
+     and buy nothing, so on those hosts the feature is simply not there. */
+  const HOSTED = !/(^|\.)(claude\.ai|claudeusercontent\.com|anthropic\.com)$/i.test(location.hostname);
+  let timer = null, chain = Promise.resolve(false), applying = false;
+  let reachable = HOSTED ? null : false;   // null until the first call answers
+  let note = "";                   // what the pill and the sheet say
+  let lastSent = {};               // pid -> fingerprint of what was pushed
+  let held = null;                 // a merged answer waiting for a safe moment
+
+  function conf() {
+    if (!state.cloud || typeof state.cloud !== "object") state.cloud = {};
+    return state.cloud;
+  }
+  function code() { return conf().code || ""; }
+  function on() { return !!code(); }
+  function gone() {
+    if (!state.gone || typeof state.gone !== "object") state.gone = {};
+    return state.gone;
+  }
+
+  // Cheap enough to run on every save, exact enough that an unchanged profile
+  // is never pushed twice.
+  function mark(text) {
+    let h = 5381;
+    for (let i = 0; i < text.length; i++) h = ((h * 33) ^ text.charCodeAt(i)) >>> 0;
+    return h + ":" + text.length;
+  }
+
+  // What the device is not entitled to send: its own sync bookkeeping.
+  function outgoing(p) {
+    const copy = {};
+    Object.keys(p).forEach(function (k) { if (k !== "sync") copy[k] = p[k]; });
+    return copy;
+  }
+
+  function post(body, closing) {
+    const text = JSON.stringify(body);
+    return fetch(ENDPOINT, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      // A plain request dies with the page. `keepalive` outlives it, but only
+      // up to 64 KB, and a family of maxed-out players is bigger than that -
+      // so it is used when it fits and skipped when it would fail outright.
+      keepalive: !!closing && text.length < 60000,
+      body: text
+    }).then(function (res) {
+      const kind = res.headers.get("content-type") || "";
+      // A deployment without the Function answers this path with the page
+      // itself, or with a 405. Neither is the endpoint.
+      if (kind.indexOf("json") === -1) throw new Error("not the sync endpoint");
+      return res.json().then(function (data) { return { status: res.status, data: data }; });
+    });
+  }
+
+  /* Merged profiles are copied INTO the objects the game already holds. A
+     round in progress has a reference to its player, and swapping the object
+     underneath it would send the rest of the round into a copy nobody saves. */
+  function adopt(local, remote) {
+    Object.keys(local).forEach(function (k) {
+      if (k !== "sync" && !(k in remote)) delete local[k];
+    });
+    Object.keys(remote).forEach(function (k) { local[k] = remote[k]; });
+    local.sync = { money: money(local), spent: spent(local) };
+  }
+
+  function playing() {
+    return !!session && !session.ended &&
+      ["match", "listen", "pairs", "fruit", "word", "fish"].indexOf(screen) !== -1;
+  }
+
+  function apply(data) {
+    /* A profile the server could not store - it lost a race with another
+       computer eight times over - must not be adopted, or this device would
+       forget what it just failed to send. Keep ours and go round again. */
+    const stale = {};
+    (data.stale || []).forEach(function (id) { stale[id] = true; });
+    // Everything below writes, and every write calls save(), which would ask
+    // for another sync, which would apply again: a four-second heartbeat that
+    // never stops. The flag breaks the circle; a real change made here - a set
+    // bonus this device had never paid - still goes up on the next save.
+    applying = true;
+    const seen = {};
+    (data.profiles || []).forEach(function (rp) {
+      if (!rp || !rp.id || stale[rp.id]) return;
+      seen[rp.id] = true;
+      const mine = state.profiles.find(function (x) { return x.id === rp.id; });
+      if (mine) adopt(mine, rp);
+      else {
+        rp.sync = { money: money(rp), spent: spent(rp) };
+        state.profiles.push(rp);
+      }
+    });
+    (data.gone || []).forEach(function (id) {
+      state.profiles = state.profiles.filter(function (x) { return x.id !== id; });
+      delete gone()[id];
+    });
+    // A profile that came from another computer may have completed a card set
+    // this device has never paid for.
+    state.profiles.forEach(function (p) {
+      // The fingerprint is of what the server holds, not of what this device
+      // makes of it: a correction below has to be pushed once, and then the
+      // two agree and it is never pushed again.
+      lastSent[p.id] = mark(JSON.stringify(outgoing(p)));
+      backfill(p);
+      checkSets(p);
+    });
+    if (state.activeId && !state.profiles.some(function (x) { return x.id === state.activeId; })) {
+      state.activeId = null;
+    }
+    conf().at = Date.now();
+    save();
+    applying = false;
+    if (data.stale && data.stale.length) window.setTimeout(function () { queue(false); }, 400);
+  }
+
+  function stamp() {
+    const at = conf().at;
+    if (!at) return "";
+    const mins = Math.round((Date.now() - at) / 60000);
+    if (mins < 1) return "saved just now";
+    if (mins === 1) return "saved a minute ago";
+    if (mins < 60) return "saved " + mins + " minutes ago";
+    const hrs = Math.round(mins / 60);
+    return "saved " + hrs + (hrs === 1 ? " hour ago" : " hours ago");
+  }
+
+  function run(full, closing) {
+    if (!on() || reachable === false) return Promise.resolve(false);
+    const body = { action: "sync", code: code(), profiles: [], base: {}, gone: [] };
+    state.profiles.forEach(function (p) {
+      const text = JSON.stringify(outgoing(p));
+      if (full || lastSent[p.id] !== mark(text)) body.profiles.push(JSON.parse(text));
+      const base = p.sync;
+      if (base) body.base[p.id] = { money: money(base), spent: spent(base) };
+    });
+    Object.keys(gone()).forEach(function (id) { body.gone.push(id); });
+
+    return post(body, closing).then(function (res) {
+      reachable = true;
+      if (res.status === 404 && res.data && res.data.unknownCode) {
+        // The family was deleted, or the code was mistyped into the save.
+        note = "that code is not known any more";
+        conf().code = "";
+        save();
+        return false;
+      }
+      if (!res.data || !res.data.ok) {
+        note = (res.data && res.data.error) || "could not save to the cloud";
+        return false;
+      }
+      // Never rearrange a player's world mid-round; hold it for the next
+      // moment they are back on a menu.
+      if (playing()) held = res.data; else apply(res.data);
+      note = "";                       // the "saved ..." line is derived below
+      return true;
+    }).catch(function () {
+      if (reachable === null) reachable = false;   // no endpoint here at all
+      note = navigator.onLine === false ? "offline - saved on this computer" : "will try again";
+      return false;
+    });
+  }
+
+  /* One request at a time, and every caller's promise resolves after its own
+     turn. Without the queue a "make sure this is saved" call made while
+     another was in flight would answer "done" having sent nothing. */
+  function queue(full, closing) {
+    chain = chain.catch(function () { return false; }).then(function () { return run(full, closing); });
+    return chain;
+  }
+
+  return {
+    on: on,
+    code: code,
+    ready: function () { return reachable !== false; },
+    note: function () { return note || (on() ? stamp() : ""); },
+    // A round that ends offline still has to be pushed the moment it is back.
+
+    // Called from save(). Cheap, debounced, and never on the critical path.
+    touch: function () {
+      if (!on() || reachable === false || applying) return;
+      if (timer) window.clearTimeout(timer);
+      timer = window.setTimeout(function () { timer = null; queue(false); }, DEBOUNCE);
+    },
+
+    // Called when a round ends and it is safe to change what is on screen.
+    settle: function () {
+      if (!held) return false;
+      const data = held;
+      held = null;
+      apply(data);
+      return true;
+    },
+
+    forget: function (id) {
+      gone()[id] = Date.now();
+      save();
+      this.flush();
+    },
+
+    flush: function (closing) {
+      if (timer) { window.clearTimeout(timer); timer = null; }
+      return queue(false, closing);
+    },
+
+    start: function () {
+      if (!on()) return Promise.resolve(false);
+      return queue(true).then(function (okFlag) { render(); return okFlag; });
+    },
+
+    // Mint a family for this computer and push everything it already has.
+    begin: function () {
+      note = "";
+      return post({ action: "new" }).then(function (res) {
+        reachable = true;
+        if (!res.data || !res.data.ok || !res.data.code) throw new Error("no code");
+        conf().code = res.data.code;
+        conf().at = 0;
+        save();
+        return queue(true);
+      }).catch(function () {
+        if (reachable === null) reachable = false;
+        note = "could not reach the cloud";
+        return false;
+      });
+    },
+
+    // Join an existing family. Whatever is on this computer joins it too.
+    join: function (raw) {
+      const want = String(raw || "").toUpperCase().replace(/[^0-9A-Z]/g, "");
+      if (want.length !== 8) { note = "a code is eight letters and numbers"; return Promise.resolve(false); }
+      note = "";
+      conf().code = want;
+      conf().at = 0;
+      lastSent = {};
+      save();
+      return queue(true).then(function (okFlag) {
+        if (!okFlag && !conf().code) note = "no family has that code";
+        return okFlag;
+      });
+    },
+
+    stop: function () {
+      conf().code = "";
+      conf().at = 0;
+      lastSent = {};
+      note = "";
+      save();
+    },
+
+    // The top bar tells the truth in one glyph, and the tooltip in a sentence.
+    pill: function () {
+      if (!on() || reachable === false) return "";
+      return '<span class="cloud-pill" title="Cloud save is on - ' + esc(stamp() || "saving") +
+             '. This player opens with the same levels, stars and money on any computer.">' +
+             '\u2601</span>';
+    }
+  };
+})();
+
 function encodeState(data) {
   const bytes = new TextEncoder().encode(JSON.stringify(data));
   let bin = "";
@@ -2932,7 +3235,14 @@ let session = null;
 let lastPrompt = null;
 let draft = null;
 
-function save() { store.write(state); }
+function save() {
+  // `touched` breaks ties on the name and the face when two computers both
+  // edited a player; the cloud push itself is debounced and never blocks.
+  const who = currentProfile();
+  if (who) who.touched = Date.now();
+  store.write(state);
+  if (typeof cloud !== "undefined") cloud.touch();
+}
 
 function currentProfile() {
   return state.profiles.find(function (p) { return p.id === state.activeId; }) || null;
@@ -2976,6 +3286,12 @@ function bump(p, k, right) {
    green stars and the money go. A child who wants a clean sheet keeps the
    thing they picked and loses only the numbers. */
 function wipeRecord(p) {
+  /* A cleared record is a decision, and the merge has to be able to tell it
+     from a stale save - otherwise the other computer would hand every level
+     and every dollar straight back. The stamp is what says "this is newer than
+     anything you have". */
+  p.wipe = Date.now();
+  p.sync = { money: 0, spent: 0 };
   p.progress = { hiragana: { level: 0, boxes: {}, perfect: {} } };
   p.course = "hiragana";
   p.money = 0;
@@ -3684,6 +4000,9 @@ function refreshPool(p) {
 }
 
 function go(name) {
+  // Anything the cloud sent while a round was running is applied now, on the
+  // way out of it, so nothing changes under a child mid-question.
+  if (["match", "listen", "pairs", "fruit", "word", "fish"].indexOf(name) === -1) cloud.settle();
   stopStudyPlay();
   closeStudyOverlay();
   closeMapOverlay();
@@ -3726,7 +4045,7 @@ function renderTopbar() {
   if (p && screen !== "home") {
     html += '<button class="who" id="toMenu" title="' + esc(p.name) +
               ' — back to the topic menu">' +
-              '<span class="who-face" aria-hidden="true">' + p.face + '</span>' +
+              '<span class="who-face" aria-hidden="true">' + esc(p.face) + '</span>' +
               '<span class="who-name">' + esc(p.name) + '</span></button>' +
             '<span class="stars green" title="Levels cleared without a single mistake">' +
               '★ ' + greenStars(p) + '</span>' +
@@ -3734,7 +4053,8 @@ function renderTopbar() {
               cash(balance(p)) + '</span>' +
             '<button class="purse" id="toWallet" title="Cards collected — tap to open your wallet">' +
               '🃏 <span>' + cardCount(p) + '</span></button>' +
-            '<button class="purse map" id="toMap" title="The map — build famous places with your money">🗾</button>';
+            '<button class="purse map" id="toMap" title="The map — build famous places with your money">🗾</button>' +
+            cloud.pill();
   }
   topbarEl.innerHTML = html;
   const home = document.getElementById("toHome");
@@ -3940,6 +4260,80 @@ function unlockBanner() { return ""; }
    8. HOME
    ============================================================ */
 
+/* The only part of cloud save a family ever sees: one code, one button to
+   copy it, one box to type it into on the other computer. Deliberately on the
+   player-picking screen and nowhere else, so a child cannot wander into it. */
+function cloudSheet() {
+  if (!cloud.ready()) return "";
+  if (!cloud.on()) {
+    return '<div class="sheet stack">' +
+             '<span class="eyebrow">Same progress on every computer</span>' +
+             '<p class="fineprint">Turn this on and every player here is saved to the cloud. ' +
+             'Type the code it gives you on another computer and the same levels, green stars, ' +
+             'cards and money are waiting there.</p>' +
+             '<div class="row">' +
+               '<button class="btn btn-sm" id="cloudOn" title="Save every player here to the cloud and show the family code">Turn on cloud save</button>' +
+               '<span class="grow-label">or</span>' +
+               '<input class="code-in" id="cloudCode" maxlength="9" placeholder="CODE" ' +
+                 'title="The eight-letter code from the computer you already set up" ' +
+                 'aria-label="Family code" />' +
+               '<button class="btn btn-sm" id="cloudJoin" title="Bring this family\'s players onto this computer">Use this code</button>' +
+             '</div>' +
+             '<span class="grow-label" id="cloudMsg">' + esc(cloud.note()) + '</span>' +
+           '</div>';
+  }
+  const c = cloud.code();
+  return '<div class="sheet stack">' +
+           '<span class="eyebrow">Cloud save is on</span>' +
+           '<div class="row">' +
+             '<span class="code-box" title="Your family code. Type it on another computer to bring these players across.">' +
+               esc(c.slice(0, 4)) + '<i>-</i>' + esc(c.slice(4)) + '</span>' +
+             '<button class="btn btn-sm" id="cloudCopy" title="Copy the family code">Copy</button>' +
+             '<span class="grow-label" id="cloudMsg">' + esc(cloud.note()) + '</span>' +
+           '</div>' +
+           '<p class="fineprint">Anyone with this code can open these players, so keep it in the family. ' +
+             '<button class="linkish" id="cloudOff" title="Stop saving to the cloud on this computer. Nothing already saved is deleted.">Stop syncing here</button></p>' +
+         '</div>';
+}
+
+function wireCloud() {
+  const msg = document.getElementById("cloudMsg");
+  function say(t) { if (msg) msg.textContent = t; }
+
+  const onBtn = document.getElementById("cloudOn");
+  if (onBtn) onBtn.onclick = function () {
+    onBtn.disabled = true;
+    say("making a code…");
+    cloud.begin().then(function () { render(); });
+  };
+
+  const joinBtn = document.getElementById("cloudJoin");
+  if (joinBtn) joinBtn.onclick = function () {
+    const input = document.getElementById("cloudCode");
+    say("looking for that family…");
+    cloud.join(input ? input.value : "").then(function (okFlag) {
+      if (!okFlag) say(cloud.note() || "no family has that code");
+      render();
+    });
+  };
+
+  const copy = document.getElementById("cloudCopy");
+  if (copy) copy.onclick = function () {
+    const c = cloud.code();
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(c).then(function () { say("code copied"); }, function () { say(c); });
+    } else { say(c); }
+  };
+
+  const off = document.getElementById("cloudOff");
+  if (off) off.onclick = function () {
+    if (!window.confirm("Stop cloud save on this computer?\n\nThe players stay here and stay in the cloud. " +
+        "You can turn it back on with the same code.")) return;
+    cloud.stop();
+    render();
+  };
+}
+
 function renderHome() {
   const grid = state.profiles.map(function (p) {
     const rows = allRows(p);
@@ -3949,7 +4343,7 @@ function renderHome() {
     const lv = levelInfo(p);
     return '<div class="pslot">' +
              '<button class="profile" data-open="' + p.id + '">' +
-               '<span class="profile-face" aria-hidden="true">' + p.face + '</span>' +
+               '<span class="profile-face" aria-hidden="true">' + esc(p.face) + '</span>' +
                '<span class="profile-name">' + esc(p.name) + '</span>' +
                '<span class="profile-meta">' + courseOf(p).title + ' · ' + lv.label + '</span>' +
                '<span class="profile-meta">' + done + ' of ' + total + ' mastered</span>' +
@@ -3972,6 +4366,7 @@ function renderHome() {
           (state.profiles.length < 6 ? '<button class="profile add" id="addPlayer">+ New player</button>' : '') +
         '</div>' +
       '</div>' +
+      cloudSheet() +
       (state.profiles.length
         ? '<div class="row"><button class="btn btn-sm" id="saveLink">Save a link</button><span class="grow-label" id="saveMsg"></span></div>'
         : '') +
@@ -3986,6 +4381,8 @@ function renderHome() {
 
   const add = document.getElementById("addPlayer");
   if (add) add.onclick = function () { audio.prime(); draft = null; state.activeId = null; go("profile"); };
+
+  wireCloud();
 
   const link = document.getElementById("saveLink");
   if (link) link.onclick = function () {
@@ -4082,6 +4479,9 @@ function renderProfileEditor(p) {
   if (del) del.onclick = function () {
     if (!window.confirm("Delete " + p.name + " and all their progress?")) return;
     state.profiles = state.profiles.filter(function (x) { return x.id !== p.id; });
+    // A missing row cannot say "deleted"; the other computer would just push
+    // its copy back. The tombstone travels instead.
+    cloud.forget(p.id);
     state.activeId = null; draft = null; save(); go("home");
   };
 }
@@ -4865,7 +5265,7 @@ function renderMenu(p) {
     '<div class="stack">' +
       '<div class="sheet stack">' +
         '<span class="eyebrow">' + courseOf(p).title + ' · ' + lv.label + ' of ' + lv.total + '</span>' +
-        '<h1>Hi ' + esc(p.name) + ' ' + p.face + '</h1>' +
+        '<h1>Hi ' + esc(p.name) + ' ' + esc(p.face) + '</h1>' +
         '<p>' + (lv.kind === "review" ? "Review level — "
                  : lv.kind === "kanji" ? "漢字 — "
                  : courseOf(p).kind === "vocab" ? "New words — "
@@ -6931,6 +7331,70 @@ document.addEventListener("click", function (e) {
   speech.say(b.getAttribute("data-say"));
 });
 
+/* Everything a save has to be put through before the game can trust it.
+
+   Boot has always done this to whatever came out of localStorage. The cloud
+   made it something a merged profile needs too: a save written by an older
+   build, or by a computer that has not reloaded since the last deploy, arrives
+   in that build's shape and would otherwise go straight into play. */
+function backfill(p) {
+  p.tier = ONE_TIER;
+  if (!p.progress) {                           // pre-courses saves kept one flat set
+    p.progress = { hiragana: { level: p.level || 0, boxes: p.boxes || {} } };
+  }
+  delete p.boxes;
+  if (!p.course || !COURSES[p.course]) p.course = "hiragana";
+  Object.keys(p.progress).forEach(function (id) {
+    if (!COURSES[id]) { delete p.progress[id]; return; }
+    const g = p.progress[id];
+    if (!g.boxes) g.boxes = {};
+    if (typeof g.level !== "number") g.level = 0;
+  });
+  prog(p);
+  // Drop stray box keys that are not items of their topic (older builds
+  // recorded individual letters on vocabulary topics).
+  Object.keys(p.progress).forEach(function (cid) {
+    const owned = COURSES[cid] && COURSES[cid].items;
+    if (!owned) return;
+    const bx = p.progress[cid].boxes;
+    Object.keys(bx).forEach(function (k) { if (!owned[k]) delete bx[k]; });
+  });
+  delete p.unlocked; delete p.lastKind; delete p.level;
+  prog(p).level = Math.max(0, Math.min(prog(p).level, ladderFor(p).length - 1));
+  delete p.stars;                       // the points counter is gone
+  p.tier = ONE_TIER;                    // tiers are gone; everyone plays the same game
+  delete p.pace; delete p.typing;       // ...and so are the two dials
+  if (!p.cards) p.cards = {};
+  Object.keys(p.progress).forEach(function (cid) {
+    if (!p.progress[cid].perfect) p.progress[cid].perfect = {};
+  });
+  if (typeof p.money !== "number" || !isFinite(p.money)) {
+    // First boot after money existed: pay for the stars already on the board,
+    // so a week of flawless rounds is not suddenly worth nothing. Runs once.
+    let owed = 0;
+    Object.keys(p.progress).forEach(function (cid) {
+      const per = p.progress[cid].perfect || {};
+      Object.keys(per).forEach(function (k) {
+        if (per[k]) owed += starPay(parseInt(k, 10) || 0);
+      });
+    });
+    p.money = owed;
+  }
+  if (typeof p.spent !== "number" || !isFinite(p.spent)) p.spent = 0;
+  if (!p.landmarks || typeof p.landmarks !== "object") p.landmarks = {};
+  if (!p.setsPaid || typeof p.setsPaid !== "object") p.setsPaid = {};
+  checkSets(p);          // sets completed before bonuses existed are paid once, here
+  /* Every course, not only the one that happens to be open. `ladderFor` reads
+     the profile's current course, so this clamp has never once looked at the
+     others - a stub asks the question properly, the way ECONOMY does. */
+  Object.keys(p.progress).forEach(function (cid) {
+    const top = ladderFor({ course: cid, unlockAll: p.unlockAll }).length - 1;
+    p.progress[cid].level = Math.max(0, Math.min(p.progress[cid].level || 0, Math.max(0, top)));
+  });
+  // A face is picked from a list. Anything else arrived by another route.
+  if (FACES.indexOf(p.face) === -1) p.face = FACES[0];
+}
+
 (function boot() {
   const hash = location.hash.replace(/^#/, "");
   if (hash.indexOf("s=") === 0) {
@@ -6941,54 +7405,7 @@ document.addEventListener("click", function (e) {
     const saved = store.read();
     if (saved && Array.isArray(saved.profiles)) state = saved;
   }
-  state.profiles.forEach(function (p) {          // backfill older saves
-    p.tier = ONE_TIER;
-    if (!p.progress) {                           // pre-courses saves kept one flat set
-      p.progress = { hiragana: { level: p.level || 0, boxes: p.boxes || {} } };
-    }
-    delete p.boxes;
-    if (!p.course || !COURSES[p.course]) p.course = "hiragana";
-    Object.keys(p.progress).forEach(function (id) {
-      if (!COURSES[id]) { delete p.progress[id]; return; }
-      const g = p.progress[id];
-      if (!g.boxes) g.boxes = {};
-      if (typeof g.level !== "number") g.level = 0;
-    });
-    prog(p);
-    // Drop stray box keys that are not items of their topic (older builds
-    // recorded individual letters on vocabulary topics).
-    Object.keys(p.progress).forEach(function (cid) {
-      const owned = COURSES[cid] && COURSES[cid].items;
-      if (!owned) return;
-      const bx = p.progress[cid].boxes;
-      Object.keys(bx).forEach(function (k) { if (!owned[k]) delete bx[k]; });
-    });
-    delete p.unlocked; delete p.lastKind; delete p.level;
-    prog(p).level = Math.max(0, Math.min(prog(p).level, ladderFor(p).length - 1));
-    delete p.stars;                       // the points counter is gone
-    p.tier = ONE_TIER;                    // tiers are gone; everyone plays the same game
-    delete p.pace; delete p.typing;       // ...and so are the two dials
-    if (!p.cards) p.cards = {};
-    Object.keys(p.progress).forEach(function (cid) {
-      if (!p.progress[cid].perfect) p.progress[cid].perfect = {};
-    });
-    if (typeof p.money !== "number" || !isFinite(p.money)) {
-      // First boot after money existed: pay for the stars already on the board,
-      // so a week of flawless rounds is not suddenly worth nothing. Runs once.
-      let owed = 0;
-      Object.keys(p.progress).forEach(function (cid) {
-        const per = p.progress[cid].perfect || {};
-        Object.keys(per).forEach(function (k) {
-          if (per[k]) owed += starPay(parseInt(k, 10) || 0);
-        });
-      });
-      p.money = owed;
-    }
-    if (typeof p.spent !== "number" || !isFinite(p.spent)) p.spent = 0;
-    if (!p.landmarks || typeof p.landmarks !== "object") p.landmarks = {};
-    if (!p.setsPaid || typeof p.setsPaid !== "object") p.setsPaid = {};
-    checkSets(p);          // sets completed before bonuses existed are paid once, here
-  });
+  state.profiles.forEach(backfill);
   if (state.resetAt !== RECORDS_RESET) {
     state.profiles.forEach(wipeRecord);
     state.resetAt = RECORDS_RESET;
@@ -6996,6 +7413,13 @@ document.addEventListener("click", function (e) {
   }
 
   state.activeId = null;
+  /* The pull happens after the migration pass above, so anything that arrives
+     from another computer is already in the shape this build expects. */
+  cloud.start();
+  window.addEventListener("online", function () { cloud.flush(); });
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "hidden") cloud.flush(true);
+  });
   render();
   photos.start();
 })();
