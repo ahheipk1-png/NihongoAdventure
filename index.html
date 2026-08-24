@@ -1063,7 +1063,9 @@ button.board-tag.leave:focus-visible { outline: 2.5px solid var(--ai); outline-o
   border-radius: 8px; padding: 2px 8px;
 }
 .wcard-read { font-family: var(--font-kana); font-size: 11px; color: var(--ink-faint); }
-.purse.sound { font-size: 15px; padding: 6px 10px; }
+.purse.sound, .purse.vol { font-size: 15px; padding: 6px 10px; }
+.study-again { margin: 14px 0 6px; font-size: 12px; letter-spacing: .04em;
+               text-transform: uppercase; opacity: .65; text-align: center; }
 .cloud-pill {
   font-size: 14px; line-height: 1; padding: 6px 9px; border-radius: 999px;
   background: var(--ai-wash); color: var(--ai); border: 1px solid transparent;
@@ -3296,6 +3298,7 @@ function isDue(p, k, now) { return (now || Date.now()) >= dueAt(boxRec(p, k)); }
 function bump(p, k, right) {
   const rec = boxRec(p, k);
   const now = Date.now();
+  const was = rec.b;
   let b = rec.b;
   if (right) {
     // Climbing to the last box - being called "mastered" and growing a sprout
@@ -3306,6 +3309,9 @@ function bump(p, k, right) {
     b = Math.max(0, b - 2);
   }
   prog(p).boxes[k] = { b: b, t: now };
+  // Mastery happens mid-round, so it gets its own quiet chime rather than the
+  // round's - and it is the only place in the game that sound is heard.
+  if (b >= MASTERED && was < MASTERED) audio.mastered();
 }
 
 /* Clearing a record without deleting the player: the character, the face, the
@@ -3547,7 +3553,7 @@ function advanceLevel(p) {
   if (!levelSolid(p)) return null;
   if (at >= ladder.length - 1) {
     // The last level is passable too - that is what finishing a topic means.
-    if (!prog(p).done) prog(p).done = true;
+    if (!prog(p).done) { prog(p).done = true; audio.finished(); }
     return null;
   }
   prog(p).level = at + 1;
@@ -3575,25 +3581,111 @@ function boardPool(p) {
     c.units.forEach(function (u) { u.keys.forEach(function (k) { shared[k] = 1; }); });
   }
   const asks = function (k) { return !shared[k] && tellsApart(p, k, forms); };
+  /* A listening board's only question is what you can hear, so anything it
+     borrows from earlier has to have a voice. The level's own items were
+     already checked by gameFitsLevel; the borrowed ones never were. */
+  const audible = info.game === "listen"
+    ? function (k) { return speech.can(k); }
+    : function () { return true; };
 
   // Anything learned earlier that has fallen due outranks new material — that
   // is the whole point of spacing. Cap it so a board never becomes all revision.
   const now = Date.now();
   const overdue = learnedKana(p).filter(function (k) {
-    return kana.indexOf(k) === -1 && box(p, k) > 0 && isDue(p, k, now) && asks(k);
+    return kana.indexOf(k) === -1 && box(p, k) > 0 && isDue(p, k, now) && asks(k) && audible(k);
   });
   if (overdue.length) {
     kana = pickFive(p, overdue).slice(0, 2).concat(kana);
   }
   if (kana.length < BOARD_SIZE) {
     const older = learnedKana(p).filter(function (k) {
-      return kana.indexOf(k) === -1 && asks(k);
+      return kana.indexOf(k) === -1 && asks(k) && audible(k);
     });
     if (older.length) {
       kana = kana.concat(pickFive(p, older).slice(0, BOARD_SIZE - kana.length));
     }
   }
   return kana;
+}
+
+/* The sheet and the board have to be looking at the same list, and boardPool
+   is not deterministic: it picks at random and asks what is due at this
+   moment. Drawn once per player per level and kept, so studying, failing and
+   retrying all show the board that is really coming. The key carries the topic
+   as well as the level number - level 3 of hiragana is not level 3 of verbs. */
+let poolMemo = null;
+
+function levelPool(p) {
+  const key = [p && p.id, p && p.course, prog(p).level || 0].join("|");
+  if (poolMemo && poolMemo.key === key) return poolMemo.pool.slice();
+  poolMemo = { key: key, pool: boardPool(p).slice() };
+  return poolMemo.pool.slice();
+}
+
+/* What the sheet shows: the level's own items, then whatever the board is
+   borrowing back from earlier. Split rather than merged - "here is the new
+   material" and "here is what is coming round again" are different promises. */
+function studyKeys(p, lv) {
+  const own = (lv.kana || []).slice();
+  const extra = levelPool(p).filter(function (k) { return own.indexOf(k) === -1; });
+
+  /* keepFamilies deliberately reaches past the pool to fetch a word's
+     relatives - that is what makes 橋 against 箸 and 端 a drill rather than a
+     picture quiz - so the sheet has to know about them too, or it lists 町 and
+     the board asks 街. Bounded: a family is three words at most. */
+  const c = courseOf(p);
+  if (c.homophone) {
+    const confuse = c.confuse || {}, met = {};
+    learnedKana(p).forEach(function (k) { met[k] = 1; });
+    own.concat(extra).forEach(function (k) {
+      (confuse[k] || []).forEach(function (rel) {
+        if (met[rel] && own.indexOf(rel) === -1 && extra.indexOf(rel) === -1) extra.push(rel);
+      });
+    });
+  }
+  return { own: own, extra: extra, all: own.concat(extra) };
+}
+
+/* A word on a kana topic is not one of the topic's items - the items are
+   letters, and the word is made of them - so nothing on the sheet ever named
+   it. That is how a child could be asked to spell あか having been taught あ
+   and か and never once told that あか means red. */
+function studyWordsHTML(p, words) {
+  return words.map(function (x) {
+    const tiles = x.w.split("").map(function (ch) {
+      return '<span class="spell-tile">' + esc(ch) + '</span>';
+    }).join('<span class="spell-plus" aria-hidden="true">+</span>');
+    return '<div class="study-row spell">' +
+             '<div class="spell-head">' +
+               (picFor(x.w) ? picImg(x.w, "study-img")
+                 : x.pic ? '<span class="study-pic" aria-hidden="true">' + x.pic + '</span>' : '') +
+               '<div class="spell-meta">' +
+                 '<span class="study-part kana">' + esc(x.w) + '</span>' +
+                 '<span class="study-en-inline">' + esc(x.en) + '</span>' +
+               '</div>' + speakerBtn(p, x.w, null) +
+             '</div>' +
+             '<div class="spell-row">' + tiles + '</div>' +
+           '</div>';
+  }).join("");
+}
+
+function studySheetHTML(p, lv) {
+  const keys = studyKeys(p, lv);
+  let out = '<div class="study-list">' + studyRowsHTML(p, lv, keys.own) + '</div>';
+  if (keys.extra.length) {
+    out += '<div class="study-again">Also on this board \u2014 met before, due for another look</div>' +
+           '<div class="study-list">' + studyRowsHTML(p, lv, keys.extra) + '</div>';
+  }
+  // On a vocabulary topic the words are the items and are already above.
+  if (lv.game === "word" && courseOf(p).kind === "kana") {
+    const words = wordsForLevel(p);
+    if (words.length) {
+      out += '<div class="study-again">The words you will build \u2014 the letters you know, ' +
+             'put together</div>' +
+             '<div class="study-list">' + studyWordsHTML(p, words) + '</div>';
+    }
+  }
+  return out;
 }
 
 /* Rebuild a board so relatives travel together. A 橋 next to five unrelated
@@ -3701,13 +3793,31 @@ function artOK(form) { return form === "en"; }
    player, because it is a fact about the room the computer is in - one child
    playing next to a sleeping brother wants it off whoever is holding the
    mouse, and it should not follow them to school on the next sync. */
+const SAMPLE_WORD = "\u3042";   // just an /a/ - the shortest thing with a clip
 function quietMode() { return !!(state && state.quiet); }
 
-const speech = (function () {
-  let el = null, jaVoice = null, wired = false;
+/* Loud, medium, quiet. Three steps and no slider: a slider in a top bar is a
+   thing a six-year-old drags by accident, and there is no volume worth having
+   between these. Nothing here is zero - silence is the other button's job, and
+   a zero would also break the exponential ramps the tones are drawn with. */
+const VOL_STEPS = [1, 0.6, 0.3];
+const VOL_ICON  = ["\ud83d\udd0a", "\ud83d\udd09", "\ud83d\udd08"];
 
-  // Exactly a fifth louder than the clip was recorded.
-  const SAY_GAIN = 1.2;
+function volLevel() {
+  const v = state && state.vol;
+  return typeof v === "number" && v > 0 && v <= 1 ? v : VOL_STEPS[0];
+}
+
+function volStep() {
+  let best = 0;
+  for (let i = 1; i < VOL_STEPS.length; i++) {
+    if (Math.abs(VOL_STEPS[i] - volLevel()) < Math.abs(VOL_STEPS[best] - volLevel())) best = i;
+  }
+  return best;
+}
+
+const speech = (function () {
+  let el = null, jaVoice = null;
 
   function findVoice() {
     if (!("speechSynthesis" in window)) return;
@@ -3721,23 +3831,35 @@ const speech = (function () {
 
   function clip(key) { return (window.AUDIO && window.AUDIO[key]) || null; }
 
-  /* Routed once, the first time there is a running audio context to route it
-     into. Before that the element plays on its own at its own level, which is
-     the old behaviour and is better than silence: an element connected to a
-     context that never resumes makes no sound at all. */
+  /* An <audio> element stops at 1.0, and these clips are quiet - 32 kbps mono
+     out of a system voice, recorded well below full scale - so the way to make
+     the Japanese louder than it was recorded is a gain node in front of it.
+
+     The pill's three steps scale that gain rather than the element, because
+     doing both would multiply: el.volume would cap the loud step at exactly
+     the level the boost exists to get past. Wired once, and only when there is
+     a running context to wire into - an element connected to a context that
+     never resumes makes no sound at all, which is worse than a quiet one. */
+  const SAY_BOOST = 1.2;
+  let amp = null, wired = false;
+
   function louder() {
     const ctx = audio.context();
     if (!ctx) return;
     if (ctx.state === "suspended") { try { ctx.resume(); } catch (e) { /* no-op */ } }
-    if (wired || ctx.state !== "running") return;
-    wired = true;
-    try {
-      const node = ctx.createMediaElementSource(el);
-      const amp = ctx.createGain();
-      amp.gain.value = SAY_GAIN;
-      node.connect(amp).connect(ctx.destination);
-    } catch (e) { /* one attempt only - a second would throw for good */ }
+    if (!wired && ctx.state === "running") {
+      wired = true;
+      try {
+        const node = ctx.createMediaElementSource(el);
+        amp = ctx.createGain();
+        node.connect(amp).connect(ctx.destination);
+      } catch (e) { amp = null; }
+    }
+    // Set every time: the pill can move between one word and the next.
+    if (amp) { amp.gain.value = SAY_BOOST * volLevel(); el.volume = 1; }
+    else el.volume = volLevel();
   }
+
 
   return {
     // Something can be spoken if there is a clip for it, or a Japanese voice.
@@ -3766,6 +3888,7 @@ const speech = (function () {
         window.speechSynthesis.cancel();
         const u = new SpeechSynthesisUtterance(key);
         u.voice = jaVoice; u.lang = jaVoice.lang; u.rate = 0.85;
+        u.volume = volLevel();
         u.onend = done; u.onerror = done;
         window.speechSynthesis.speak(u);
       } catch (e) { setTimeout(done, 0); }
@@ -3896,7 +4019,8 @@ const audio = (function () {
     osc.type = type || "sine";
     osc.frequency.value = freq;
     amp.gain.setValueAtTime(0.0001, ctx.currentTime + when);
-    amp.gain.exponentialRampToValueAtTime(gain || 0.16, ctx.currentTime + when + 0.015);
+    amp.gain.exponentialRampToValueAtTime(Math.max(0.0001, (gain || 0.16) * volLevel()),
+                                          ctx.currentTime + when + 0.015);
     amp.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + when + dur);
     osc.connect(amp).connect(ctx.destination);
     osc.start(ctx.currentTime + when);
@@ -3915,10 +4039,50 @@ const audio = (function () {
         if (ctx && ctx.state === "suspended") ctx.resume();
       } catch (e) { ctx = null; }
     },
-    good:  function () { tone(587.33, 0, .13, "sine", .14); tone(880, .09, .22, "sine", .13); },
-    bad:   function () { tone(196, 0, .2, "triangle", .1); },
-    star:  function () { [523.25, 659.25, 783.99, 1046.5].forEach(function (f, i) { tone(f, i * .075, .22, "sine", .12); }); },
-    done:  function () { [523.25, 659.25, 783.99].forEach(function (f, i) { tone(f, i * .1, .3, "sine", .13); }); }
+    /* One sound per thing that can happen, told apart by shape more than by
+       pitch: a child across the room hears the rhythm first. */
+    good:  function () { tone(587.33, 0, .13, "sine", .16); tone(880, .09, .22, "sine", .15); },
+    bad:   function () { tone(196, 0, .2, "triangle", .12); },
+
+    // The quota fills: three notes up, and that is the round won.
+    pass:  function () {
+      [523.25, 659.25, 783.99].forEach(function (f, i) { tone(f, i * .08, .26, "sine", .15); });
+    },
+    // A green star. The same shape an octave up, with a sparkle over the top,
+    // because flawless is the rarest thing a level can be.
+    perfect: function () {
+      [523.25, 659.25, 783.99, 1046.5].forEach(function (f, i) { tone(f, i * .085, .3, "sine", .15); });
+      tone(1318.51, .36, .5, "sine", .1);
+      tone(1567.98, .44, .55, "sine", .07);
+    },
+    // A card out of the wheel: a fast shimmer, over before it is thought about.
+    card:  function () {
+      [880, 1108.73, 1318.51, 1760].forEach(function (f, i) { tone(f, i * .05, .2, "triangle", .09); });
+    },
+    // A set completed. A collection is a slower kind of win, so: a held chord.
+    set:   function () {
+      [261.63, 329.63, 392, 523.25].forEach(function (f, i) { tone(f, i * .03, .55, "sine", .1); });
+      tone(1046.5, .18, .5, "sine", .07);
+    },
+    // Something raised on the map: low to high, like a thing going up.
+    build: function () { tone(196, 0, .18, "triangle", .12); tone(392, .1, .32, "sine", .13); },
+    // An item reaching the top box mid-round. Quiet on purpose - it must not
+    // sound like the answer was wrong, and it must not stop the round.
+    mastered: function () { tone(1046.5, 0, .16, "sine", .08); tone(783.99, .1, .26, "sine", .07); },
+    /* A whole topic finished: the longest sound in the game, and the rarest.
+       A run up the pentatonic rather than the triad the green star uses - the
+       same six notes in the same order would just be a longer green star. */
+    finished: function () {
+      [523.25, 587.33, 659.25, 783.99, 880, 1046.5].forEach(function (f, i) {
+        tone(f, i * .1, .4, "sine", .13);
+      });
+      tone(130.81, .1, 1.1, "triangle", .09);   // a root held under the run
+      tone(196, .1, 1.1, "sine", .07);
+    },
+
+    // Older names, kept so nothing that still calls them falls silent.
+    star:  function () { this.pass(); },
+    done:  function () { [523.25, 659.25, 783.99].forEach(function (f, i) { tone(f, i * .1, .3, "sine", .12); }); }
   };
 })();
 
@@ -4131,7 +4295,11 @@ function renderTopbar() {
             : 'Turn off the game sounds - the ding, the buzz and the little fanfare. ' +
               'The Japanese keeps playing.') +
           '" aria-pressed="' + (quietMode() ? "true" : "false") +
-          '" aria-label="Game sounds">' + (quietMode() ? "\ud83d\udd07" : "\ud83c\udfb5") + '</button>';
+          '" aria-label="Game sounds">' + (quietMode() ? "\ud83d\udd07" : "\ud83c\udfb5") + '</button>' +
+          '<button class="purse vol" id="toVol" title="How loud everything is - ' +
+          'the Japanese and the game sounds together. Tap to go ' +
+          ['quieter', 'quieter', 'back to loud'][volStep()] + '." aria-label="Volume">' +
+          VOL_ICON[volStep()] + '</button>';
 
   topbarEl.innerHTML = html;
   const snd = document.getElementById("toSound");
@@ -4140,6 +4308,17 @@ function renderTopbar() {
     save();
     // Turning them back on should make a sound; turning them off should not.
     if (!quietMode()) { audio.prime(); audio.good(); }
+    renderTopbar();
+  };
+  const vol = document.getElementById("toVol");
+  if (vol) vol.onclick = function () {
+    state.vol = VOL_STEPS[(volStep() + 1) % VOL_STEPS.length];
+    save();
+    /* Hear the level you just chose, on whichever channel is still on - a
+       volume control you cannot hear the effect of is a guess. */
+    audio.prime();
+    if (!quietMode()) audio.good();
+    else speech.say(SAMPLE_WORD);
     renderTopbar();
   };
   const home = document.getElementById("toHome");
@@ -4896,11 +5075,11 @@ function wireMap(p, host, again) {
       const sg = SIGHT_BY_JP[jp];
       mapSel = sg.pref;
       if (r.card) {
-        audio.star();
+        audio.card();
         mapToast = { pref: sg.pref, card: true,
                      text: '🎴 <strong>Prefecture card!</strong> All ten built — ' + esc(r.card) + ' joins your collection.' };
       } else {
-        audio.good();
+        audio.build();
         mapToast = { pref: sg.pref, card: false,
                      text: (r.stage === 1 ? '🏗️ Built ' : r.stage === 2 ? '🏮 Lit up ' : '✨ Golden — ') +
                            esc(sg.jp) + ' for ' + cash(r.price) + '.' };
@@ -5077,7 +5256,7 @@ function startStudyPlay(p, host, lv) {
   const list = host.querySelector(".study-list");
   const playBtn = host.querySelector(".study-play");
   if (!stage) return;
-  const items = (lv.kana || []).slice();
+  const items = studyKeys(p, lv).all;
   studyPlayer.paused = false;
   studyPlayer.idx = 0;
   const alive = function () { return mySeq === studyPlayer.seq && document.body.contains(host); };
@@ -5166,7 +5345,7 @@ function studyStageHTML() {
          '<button class="btn btn-sm study-play" style="display:none" title="Show and say every item again, one by one">\u25b6 Play through</button>';
 }
 
-function studyRowsHTML(p, lvIn) {
+function studyRowsHTML(p, lvIn, keysIn) {
   const lv = lvIn || levelInfo(p);
   const c = courseOf(p);
   const forms = lv.forms || c.forms;
@@ -5176,7 +5355,7 @@ function studyRowsHTML(p, lvIn) {
   // Nothing is being tested on the study sheet, so everything may be heard.
   function say(key) { return speakerBtn(p, key, null); }
 
-  return lv.kana.map(function (key) {
+  return (keysIn || lv.kana).map(function (key) {
     const it = itemOf(p, key);
 
     // A homophone is only interesting next to what it sounds like, so the
@@ -5260,7 +5439,7 @@ function openStudyOverlay(p) {
     '<div class="study-panel">' +
       '<span class="eyebrow">' + lv.label + ' · ' + lv.sub + '</span>' +
       studyStageHTML() +
-      '<div class="study-list">' + studyRowsHTML(p, lv) + '</div>' +
+      studySheetHTML(p, lv) +
       '<p style="font-size:13px;text-align:center">Take your time — then the level starts over from the top.</p>' +
       '<button class="btn btn-primary" id="studyResume">Ready — restart level →</button>' +
     '</div>';
@@ -5285,7 +5464,6 @@ function renderStudy(p) {
   const lv = levelInfo(p);
   const game = MODE_META[lv.game];
   const cfg = tierOf(p).power;
-  const rows = studyRowsHTML(p);
   const gameIcon = game.icon || "🎮";
 
   screenEl.innerHTML =
@@ -5294,7 +5472,7 @@ function renderStudy(p) {
         '<span class="eyebrow">' + lv.label + ' · ' + lv.sub + '</span>' +
         '<h2>What this level asks</h2>' +
         studyStageHTML() +
-        '<div class="study-list">' + rows + '</div>' +
+        studySheetHTML(p, lv) +
       '</div>' +
       '<div class="howto">' + gameIcon + ' <span><b>' + game.title + ':</b> ' + game.how +
         ' <b>Right answers refill your power</b> — get ' + cfg.quota +
@@ -5422,7 +5600,7 @@ function startSession(p, mode) {
   stopLoops();
   lastPrompt = null;
   const info = levelInfo(p);
-  const full = boardPool(p);
+  const full = levelPool(p);
   let five = pickFive(p, full);
   /* On the homophones, a board is only a drill if the family is on it
      together: 橋 is trivial next to five unrelated words and hard next to 箸
@@ -5618,7 +5796,7 @@ function answerMatch(p, chosen, btn) {
     }
     else {
       credit(p, q.answer, true);
-      if (powerGain(p)) { audio.star(); setTimeout(function () { finish(p); }, 420); return; }
+      if (powerGain(p)) { audio.pass(); setTimeout(function () { finish(p); }, 420); return; }
     }
     setTimeout(function () { advanceMatch(p); }, 620);
     return;
@@ -5766,7 +5944,7 @@ function flip(p, i) {
     setTimeout(function () {
       if (!session || session.ended || screen !== "pairs") return;
       session.up = []; session.locked = false;
-      if (filled) { audio.star(); finish(p); return; }
+      if (filled) { audio.pass(); finish(p); return; }
       if (session.boardMatched >= session.boardPairs) {   // board cleared - deal a fresh five
         audio.done();
         refreshPool(p);
@@ -5902,7 +6080,7 @@ function wireFruit(p) {
         renderFruit(p);
         return;
       }
-      if (powerGain(p)) { audio.star(); renderFruit(p); setTimeout(function () { finish(p); }, 420); return; }
+      if (powerGain(p)) { audio.pass(); renderFruit(p); setTimeout(function () { finish(p); }, 420); return; }
       if (session.boardMatched >= session.boardPairs) {   // board cleared - deal a fresh five
         audio.done();
         refreshPool(p);
@@ -5991,7 +6169,18 @@ function wireFruit(p) {
 
 /* ---------- WORD BUILDING ---------- */
 
-function setupWord(p) {
+/* The five words this level will ask, decided once.
+
+   The study sheet has to promise the same five the game then asks, and the
+   choice involves a shuffle - so it is made once per player per level and
+   remembered, the way levelPool already remembers the board. Advancing a
+   level, or changing topic, draws a new five. */
+let wordMemo = null;
+
+function wordsForLevel(p) {
+  const key = [p && p.id, p && p.course, prog(p).level || 0].join("|");
+  if (wordMemo && wordMemo.key === key) return wordMemo.words.slice();
+
   const learned = learnedKana(p);
   const count = rowsIntroduced(p);
   const LIST = courseOf(p).words || [];
@@ -6016,16 +6205,24 @@ function setupWord(p) {
     }).slice(0, 5);
   }
 
-  // Favour words that exercise this board's weak five.
-  const weak = session.pool;
+  /* Favour words that exercise the board this level is built on. The board
+     pool rather than the round's own five: the five are drawn when the round
+     starts, and the sheet has to be able to say all this beforehand. */
+  const weak = levelPool(p);
   function relevance(x) {
     return isVocab
       ? (weak.indexOf(x.w) !== -1 ? 1 : 0)
       : x.w.split("").filter(function (k) { return weak.indexOf(k) !== -1; }).length;
   }
   const ranked = shuffle(usable).sort(function (a, b) { return relevance(b) - relevance(a); });
+  const words = ranked.slice(0, Math.min(5, ranked.length));
+  wordMemo = { key: key, words: words };
+  return words.slice();
+}
 
-  session.words = ranked.slice(0, Math.min(5, ranked.length));
+function setupWord(p) {
+
+  session.words = wordsForLevel(p);
   session.wi = 0;
   session.boards += 1;
   loadWord(p);
@@ -6132,7 +6329,7 @@ function placeLetter(p, ti, si) {
     if (solved && !items[t.k] && items[entry.w]) credit(p, entry.w, true);
     if (solved && speech.can(entry.w)) speech.say(entry.w);
     renderWord(p);
-    if (filled) { audio.star(); setTimeout(function () { finish(p); }, 620); return; }
+    if (filled) { audio.pass(); setTimeout(function () { finish(p); }, 620); return; }
     if (solved) {
       audio.done();
       session.paused = true;                       // do not drain on the win screen
@@ -6376,7 +6573,7 @@ function renderFish(p) {
         newTarget();
         return;
       }
-      if (powerGain(p)) { audio.star(); finish(p); return; }
+      if (powerGain(p)) { audio.pass(); finish(p); return; }
       newTarget();
       return;
     } else {
@@ -6691,7 +6888,8 @@ function landCard(p, key) {
   room.wheel = null;
   save();
   renderTopbar();          // the badges are about to be read against the prize
-  audio.star();
+  // A completed collection is the bigger news of the two.
+  if (room.prize.sets && room.prize.sets.length) audio.set(); else audio.card();
 }
 
 function renderRoom(p) {
@@ -7173,7 +7371,10 @@ function renderResult(p) {
       '</div>' +
     '</div>';
 
-  if (s.levelUp) audio.star();
+  /* The round already chimed when the quota filled, so this is only for the
+     thing that has not been heard yet: a green star, first time. */
+  if (s.perfectNew) audio.perfect();
+  else if (s.levelUp) audio.pass();
   document.getElementById("again").onclick = function () { startLevel(p); };   // always the current level
   const dr = document.getElementById("toDraw");
   if (dr) dr.onclick = function () { audio.prime(); startQuiz(p, "draw"); };
