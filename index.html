@@ -1063,6 +1063,7 @@ button.board-tag.leave:focus-visible { outline: 2.5px solid var(--ai); outline-o
   border-radius: 8px; padding: 2px 8px;
 }
 .wcard-read { font-family: var(--font-kana); font-size: 11px; color: var(--ink-faint); }
+.purse.sound { font-size: 15px; padding: 6px 10px; }
 .cloud-pill {
   font-size: 14px; line-height: 1; padding: 6px 9px; border-radius: 999px;
   background: var(--ai-wash); color: var(--ai); border: 1px solid transparent;
@@ -3696,8 +3697,17 @@ function artOK(form) { return form === "en"; }
    string) so every child hears the same correct Japanese, rather than whatever
    voice the device happens to have - many have none at all. A device ja-JP
    voice is used only to cover anything the clip set is missing. */
+/* The game's own noises, on or off. It lives on the device rather than on a
+   player, because it is a fact about the room the computer is in - one child
+   playing next to a sleeping brother wants it off whoever is holding the
+   mouse, and it should not follow them to school on the next sync. */
+function quietMode() { return !!(state && state.quiet); }
+
 const speech = (function () {
-  let el = null, jaVoice = null;
+  let el = null, jaVoice = null, wired = false;
+
+  // Exactly a fifth louder than the clip was recorded.
+  const SAY_GAIN = 1.2;
 
   function findVoice() {
     if (!("speechSynthesis" in window)) return;
@@ -3710,6 +3720,24 @@ const speech = (function () {
   }
 
   function clip(key) { return (window.AUDIO && window.AUDIO[key]) || null; }
+
+  /* Routed once, the first time there is a running audio context to route it
+     into. Before that the element plays on its own at its own level, which is
+     the old behaviour and is better than silence: an element connected to a
+     context that never resumes makes no sound at all. */
+  function louder() {
+    const ctx = audio.context();
+    if (!ctx) return;
+    if (ctx.state === "suspended") { try { ctx.resume(); } catch (e) { /* no-op */ } }
+    if (wired || ctx.state !== "running") return;
+    wired = true;
+    try {
+      const node = ctx.createMediaElementSource(el);
+      const amp = ctx.createGain();
+      amp.gain.value = SAY_GAIN;
+      node.connect(amp).connect(ctx.destination);
+    } catch (e) { /* one attempt only - a second would throw for good */ }
+  }
 
   return {
     // Something can be spoken if there is a clip for it, or a Japanese voice.
@@ -3725,6 +3753,7 @@ const speech = (function () {
       if (src) {
         try {
           if (!el) { el = new Audio(); el.preload = "auto"; }
+          louder();
           el.pause(); el.src = src; el.currentTime = 0;
           el.onended = done; el.onerror = done;
           const pr = el.play();
@@ -3862,7 +3891,7 @@ const audio = (function () {
   let ctx = null, primed = false;
 
   function tone(freq, when, dur, type, gain) {
-    if (!ctx) return;
+    if (!ctx || quietMode()) return;
     const osc = ctx.createOscillator(), amp = ctx.createGain();
     osc.type = type || "sine";
     osc.frequency.value = freq;
@@ -3875,6 +3904,8 @@ const audio = (function () {
   }
 
   return {
+    // The voice borrows this context to play louder than an element can.
+    context: function () { return ctx; },
     prime: function () {
       if (primed) return;
       primed = true;
@@ -4091,7 +4122,26 @@ function renderTopbar() {
             '<button class="purse map" id="toMap" title="The map — build famous places with your money">🗾</button>' +
             cloud.pill();
   }
+  /* Always present, including on the player-picking screen: whoever wants
+     the noise to stop is usually not the one holding the mouse. */
+  html += '<button class="purse sound" id="toSound" title="' +
+          (quietMode()
+            ? 'Game sounds are off. The ding, the buzz and the little fanfare are silent; ' +
+              'the Japanese still plays.'
+            : 'Turn off the game sounds - the ding, the buzz and the little fanfare. ' +
+              'The Japanese keeps playing.') +
+          '" aria-pressed="' + (quietMode() ? "true" : "false") +
+          '" aria-label="Game sounds">' + (quietMode() ? "\ud83d\udd07" : "\ud83c\udfb5") + '</button>';
+
   topbarEl.innerHTML = html;
+  const snd = document.getElementById("toSound");
+  if (snd) snd.onclick = function () {
+    state.quiet = !quietMode();
+    save();
+    // Turning them back on should make a sound; turning them off should not.
+    if (!quietMode()) { audio.prime(); audio.good(); }
+    renderTopbar();
+  };
   const home = document.getElementById("toHome");
   if (home) home.onclick = function () { stopLoops(); state.activeId = null; go("home"); };
   const menu = document.getElementById("toMenu");
