@@ -24,3 +24,11 @@ CREATE TABLE IF NOT EXISTS hits (
   n      INTEGER NOT NULL,
   PRIMARY KEY (ip, minute)
 );
+
+-- Admin sessions. A row rather than a signed token, because a row can be
+-- deleted: signing out, or a password change, ends every session at once.
+CREATE TABLE IF NOT EXISTS sessions (
+  token TEXT PRIMARY KEY,
+  exp   INTEGER NOT NULL,
+  pw    TEXT NOT NULL DEFAULT ''
+);

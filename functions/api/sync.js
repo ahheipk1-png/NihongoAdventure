@@ -22,6 +22,8 @@
  *   boxes {b, t}          the record answered most recently, because that is
  *                         the truer picture of what the child knows now.
  *   name, face, course    from whichever side was touched last.
+ *   opens                 the last ten, from either computer - it is what the
+ *                         parents' page at /admin shows as "last played".
  *   wipe                  a deliberate reset. A newer wipe beats everything
  *                         older on the other side, or the merge would quietly
  *                         undo the thing the parent just asked for.
@@ -178,6 +180,17 @@ function mergeProgress(a, b) {
   return out;
 }
 
+/* The last ten opens, from either computer, newest first. Two devices see
+   different halves of the same week and both halves are worth keeping. */
+function mergeOpens(a, b) {
+  const all = (Array.isArray(a) ? a : []).concat(Array.isArray(b) ? b : []);
+  const seen = {}, out = [];
+  all.map(num).filter(function (t) { return t > 0; })
+     .sort(function (x, y) { return y - x; })
+     .forEach(function (t) { if (!seen[t]) { seen[t] = 1; out.push(t); } });
+  return out.slice(0, 10);
+}
+
 function mergeProfile(server, client, base) {
   if (!server) return client;
   if (!client) return server;
@@ -205,6 +218,9 @@ function mergeProfile(server, client, base) {
     spent: counter(server.spent, client.spent, b.spent),
     landmarks: maxMap(server.landmarks, client.landmarks),
     setsPaid: orMap(server.setsPaid, client.setsPaid),
+    opens: mergeOpens(server.opens, client.opens),
+    // Derived, not authoritative: whichever side is fresher describes itself.
+    stat: newer.stat || server.stat || client.stat || null,
     wipe: Math.max(sw, cw),
     touched: Math.max(st, ct)
   };
@@ -273,7 +289,11 @@ export async function onRequestPost(context) {
 
   if (action === "new") {
     // A day bucket for code minting, so one address cannot fill the table.
-    if (await tooMany(env, key + ":n", Math.floor(minute / 1440), NEW_PER_DAY)) {
+    /* The same column as the per-minute counter, so it has to be on the same
+       scale: a day bucket numbered in the twenty-thousands looked ancient to a
+       sweep measuring in minutes and was deleted on sight, which quietly reset
+       the daily limit every time it ran. */
+    if (await tooMany(env, key + ":n", minute - (minute % 1440), NEW_PER_DAY)) {
       return bad("too many new codes today", 429);
     }
     for (let attempt = 0; attempt < 5; attempt++) {

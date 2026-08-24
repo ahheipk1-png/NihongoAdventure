@@ -2972,15 +2972,37 @@ const cloud = (function () {
   // Cheap enough to run on every save, exact enough that an unchanged profile
   // is never pushed twice.
   function mark(text) {
+    // `stat.at` ticks on every call, so fingerprinting it would push a save
+    // that has not changed, every four seconds, forever.
+    text = text.replace(/"at":\d+/g, '"at":0');
     let h = 5381;
     for (let i = 0; i < text.length; i++) h = ((h * 33) ^ text.charCodeAt(i)) >>> 0;
     return h + ":" + text.length;
+  }
+
+  /* A summary of where this child has got to, recomputed on the way out.
+
+     It rides along because the parents' page has no business owning a second
+     copy of COURSES, CARD_SETS and ECONOMY - it would drift the first time a
+     topic was added, and then quietly report the wrong thing forever. Cheap:
+     it is worked out once every few seconds at most, never during a round. */
+  function summary(p) {
+    const rows = allRows(p);
+    const items = rows.reduce(function (n, r) { return n + r.keys.length; }, 0);
+    const known = learnedKana(p).filter(function (k) { return box(p, k) >= MASTERED; }).length;
+    return {
+      topic: courseOf(p).title, level: (prog(p).level || 0) + 1, levels: ladderFor(p).length,
+      stars: greenStars(p), mastered: known, items: items,
+      balance: balance(p), cards: cardCount(p),
+      sights: Object.keys(p.landmarks || {}).length, at: Date.now()
+    };
   }
 
   // What the device is not entitled to send: its own sync bookkeeping.
   function outgoing(p) {
     const copy = {};
     Object.keys(p).forEach(function (k) { if (k !== "sync") copy[k] = p[k]; });
+    try { copy.stat = summary(p); } catch (e) { /* never block a save over a number */ }
     return copy;
   }
 
@@ -3133,12 +3155,16 @@ const cloud = (function () {
       timer = window.setTimeout(function () { timer = null; queue(false); }, DEBOUNCE);
     },
 
-    // Called when a round ends and it is safe to change what is on screen.
+    /* Called when a round ends and it is safe to change what is on screen.
+
+       The answer that arrived mid-round is thrown away rather than applied: it
+       was merged against the save as it stood before the last few questions,
+       and adopting it now would quietly roll them back. Asking again costs one
+       request and merges against what the child actually has. */
     settle: function () {
       if (!held) return false;
-      const data = held;
       held = null;
-      apply(data);
+      queue(false);
       return true;
     },
 
@@ -3304,6 +3330,15 @@ function wipeRecord(p) {
    It is deliberately manual: a save is a child's week of work, and nothing
    should be able to erase it as a side effect of shipping a change. */
 const RECORDS_RESET = "2026-08-22-fresh-start";
+
+/* A child tapping their own name is the only thing here that resembles a
+   login, so it is what gets remembered - the last ten, which is enough to see
+   who has been playing and who has quietly stopped. */
+function noteOpen(p) {
+  if (!p) return;
+  const had = Array.isArray(p.opens) ? p.opens : [];
+  p.opens = [Date.now()].concat(had).slice(0, 10);
+}
 
 function newProfile(name, face, tier) {
   return {
@@ -4376,7 +4411,13 @@ function renderHome() {
     '</div>';
 
   screenEl.querySelectorAll("[data-open]").forEach(function (b) {
-    b.onclick = function () { audio.prime(); state.activeId = b.getAttribute("data-open"); go("menu"); };
+    b.onclick = function () {
+      audio.prime();
+      state.activeId = b.getAttribute("data-open");
+      noteOpen(currentProfile());
+      save();
+      go("menu");
+    };
   });
 
   const add = document.getElementById("addPlayer");
@@ -7393,6 +7434,9 @@ function backfill(p) {
   });
   // A face is picked from a list. Anything else arrived by another route.
   if (FACES.indexOf(p.face) === -1) p.face = FACES[0];
+  if (!Array.isArray(p.opens)) p.opens = [];
+  p.opens = p.opens.filter(function (t) { return typeof t === "number" && isFinite(t) && t > 0; })
+                   .sort(function (a, b) { return b - a; }).slice(0, 10);
 }
 
 (function boot() {
