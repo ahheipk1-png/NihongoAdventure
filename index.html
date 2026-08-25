@@ -2982,6 +2982,7 @@ const cloud = (function () {
      and buy nothing, so on those hosts the feature is simply not there. */
   const HOSTED = !/(^|\.)(claude\.ai|claudeusercontent\.com|anthropic\.com)$/i.test(location.hostname);
   let timer = null, chain = Promise.resolve(false), applying = false;
+  let minting = false;              // single-flight the auto-mint
   let reachable = HOSTED ? null : false;   // null until the first call answers
   let note = "";                   // what the pill and the sheet say
   let lastSent = {};               // pid -> fingerprint of what was pushed
@@ -2993,6 +2994,9 @@ const cloud = (function () {
   }
   function code() { return conf().code || ""; }
   function on() { return !!code(); }
+  // A deliberate "Stop syncing here" is remembered, so the device does not just
+  // mint a new code on the next save and undo the choice.
+  function off() { return !!conf().off; }
   function gone() {
     if (!state.gone || typeof state.gone !== "object") state.gone = {};
     return state.gone;
@@ -3174,14 +3178,30 @@ const cloud = (function () {
     on: on,
     code: code,
     ready: function () { return reachable !== false; },
+    stopped: function () { return off(); },
     note: function () { return note || (on() ? stamp() : ""); },
     // A round that ends offline still has to be pushed the moment it is back.
 
     // Called from save(). Cheap, debounced, and never on the critical path.
+    // With no code yet, this is also where saving turns itself on.
     touch: function () {
-      if (!on() || reachable === false || applying) return;
+      if (applying) return;
+      if (!on()) { this.auto(); return; }
+      if (reachable === false) return;
       if (timer) window.clearTimeout(timer);
       timer = window.setTimeout(function () { timer = null; queue(false); }, DEBOUNCE);
+    },
+
+    /* Turn saving on by itself, once, the first time there is something to
+       save and a cloud to save it to. Not on an empty computer - that is a
+       fresh second machine, and it should be offered the family code rather
+       than start a second family - and not after a deliberate stop. */
+    auto: function () {
+      if (on() || off() || minting || reachable === false) return;
+      if (!state.profiles.length) return;
+      minting = true;
+      this.begin().then(function () { minting = false; render(); },
+                        function () { minting = false; });
     },
 
     /* Called when a round ends and it is safe to change what is on screen.
@@ -3221,6 +3241,7 @@ const cloud = (function () {
         if (!res.data || !res.data.ok || !res.data.code) throw new Error("no code");
         conf().code = res.data.code;
         conf().at = 0;
+        delete conf().off;           // starting on purpose clears a past stop
         save();
         return queue(true);
       }).catch(function () {
@@ -3237,7 +3258,11 @@ const cloud = (function () {
       note = "";
       conf().code = want;
       conf().at = 0;
+      delete conf().off;
       lastSent = {};
+      // The old baseline belonged to a different family; the money delta must
+      // not be measured against it.
+      state.profiles.forEach(function (pf) { delete pf.sync; });
       save();
       return queue(true).then(function (okFlag) {
         if (!okFlag && !conf().code) note = "no family has that code";
@@ -3248,6 +3273,7 @@ const cloud = (function () {
     stop: function () {
       conf().code = "";
       conf().at = 0;
+      conf().off = true;             // remembered, so auto() does not re-mint
       lastSent = {};
       note = "";
       save();
@@ -3264,6 +3290,12 @@ const cloud = (function () {
 })();
 
 function encodeState(data) {
+  // A "Save a link" URL is shared and bookmarked, so the family code and the
+  // deletion tombstones are stripped out of it - a credential does not belong
+  // in a link. The cloud is the durable copy anyway.
+  const bare = {};
+  Object.keys(data).forEach(function (k) { if (k !== "cloud" && k !== "gone") bare[k] = data[k]; });
+  data = bare;
   const bytes = new TextEncoder().encode(JSON.stringify(data));
   let bin = "";
   bytes.forEach(function (b) { bin += String.fromCharCode(b); });
@@ -4733,34 +4765,50 @@ function unlockBanner() { return ""; }
    player-picking screen and nowhere else, so a child cannot wander into it. */
 function cloudSheet() {
   if (!cloud.ready()) return "";
-  if (!cloud.on()) {
+  const c = cloud.code();
+
+  // On by default: once there is a player and a cloud, a code exists and this
+  // shows it. The join box stays reachable so a second computer - or this one,
+  // if it made its own family by mistake - can still join an existing code.
+  if (c) {
     return '<div class="sheet stack">' +
-             '<span class="eyebrow">Same progress on every computer</span>' +
-             '<p class="fineprint">Turn this on and every player here is saved to the cloud. ' +
-             'Type the code it gives you on another computer and the same levels, green stars, ' +
-             'cards and money are waiting there.</p>' +
+             '<span class="eyebrow">\u2601 Saved to the cloud, automatically</span>' +
              '<div class="row">' +
-               '<button class="btn btn-sm" id="cloudOn" title="Save every player here to the cloud and show the family code">Turn on cloud save</button>' +
-               '<span class="grow-label">or</span>' +
-               '<input class="code-in" id="cloudCode" maxlength="9" placeholder="CODE" ' +
-                 'title="The eight-letter code from the computer you already set up" ' +
-                 'aria-label="Family code" />' +
-               '<button class="btn btn-sm" id="cloudJoin" title="Bring this family\'s players onto this computer">Use this code</button>' +
+               '<span class="code-box" title="Your family code. Type it on another computer to open these same players there.">' +
+                 esc(c.slice(0, 4)) + '<i>-</i>' + esc(c.slice(4)) + '</span>' +
+               '<button class="btn btn-sm" id="cloudCopy" title="Copy the family code">Copy</button>' +
+               '<span class="grow-label" id="cloudMsg">' + esc(cloud.note()) + '</span>' +
              '</div>' +
-             '<span class="grow-label" id="cloudMsg">' + esc(cloud.note()) + '</span>' +
+             '<p class="fineprint">Type this code on another computer and the same players, levels, ' +
+               'stars, cards and money open there. Keep it in the family. ' +
+               '<button class="linkish" id="cloudJoinToggle" title="Open a box to type a different family code">Use a different code</button> ' +
+               '\u00b7 <button class="linkish" id="cloudOff" title="Stop saving to the cloud on this computer. Nothing already saved is deleted.">Stop</button></p>' +
+             '<div class="row" id="cloudJoinRow" hidden>' +
+               '<input class="code-in" id="cloudCode" maxlength="9" placeholder="CODE" aria-label="Family code" />' +
+               '<button class="btn btn-sm" id="cloudJoin" title="Bring that family\'s players onto this computer">Use this code</button>' +
+             '</div>' +
            '</div>';
   }
-  const c = cloud.code();
+
+  // No code yet - either a brand-new computer, or one where sync was stopped.
+  // A fresh second computer belongs here: type the family code rather than
+  // start a rival family.
   return '<div class="sheet stack">' +
-           '<span class="eyebrow">Cloud save is on</span>' +
+           '<span class="eyebrow">Same progress on every computer</span>' +
+           '<p class="fineprint">' +
+             (state.profiles.length
+               ? 'Saving to the cloud turns on by itself as soon as a player is here. '
+               : 'Already set this up on another computer? Type the family code and the same ' +
+                 'players open here. Or just start playing - a new family is saved for you.') +
+             '</p>' +
            '<div class="row">' +
-             '<span class="code-box" title="Your family code. Type it on another computer to bring these players across.">' +
-               esc(c.slice(0, 4)) + '<i>-</i>' + esc(c.slice(4)) + '</span>' +
-             '<button class="btn btn-sm" id="cloudCopy" title="Copy the family code">Copy</button>' +
-             '<span class="grow-label" id="cloudMsg">' + esc(cloud.note()) + '</span>' +
+             '<input class="code-in" id="cloudCode" maxlength="9" placeholder="CODE" ' +
+               'title="The eight-letter code from the computer you already set up" aria-label="Family code" />' +
+             '<button class="btn btn-sm" id="cloudJoin" title="Bring this family\'s players onto this computer">Use this code</button>' +
+             (cloud.stopped() ? '<span class="grow-label">or</span>' +
+               '<button class="btn btn-sm" id="cloudOn" title="Turn saving back on for this computer">Turn saving back on</button>' : '') +
            '</div>' +
-           '<p class="fineprint">Anyone with this code can open these players, so keep it in the family. ' +
-             '<button class="linkish" id="cloudOff" title="Stop saving to the cloud on this computer. Nothing already saved is deleted.">Stop syncing here</button></p>' +
+           '<span class="grow-label" id="cloudMsg">' + esc(cloud.note()) + '</span>' +
          '</div>';
 }
 
@@ -4772,7 +4820,14 @@ function wireCloud() {
   if (onBtn) onBtn.onclick = function () {
     onBtn.disabled = true;
     say("making a code…");
+    delete (state.cloud || {}).off;
     cloud.begin().then(function () { render(); });
+  };
+
+  const toggle = document.getElementById("cloudJoinToggle");
+  if (toggle) toggle.onclick = function () {
+    const row = document.getElementById("cloudJoinRow");
+    if (row) { row.hidden = !row.hidden; const i = document.getElementById("cloudCode"); if (i && !row.hidden) i.focus(); }
   };
 
   const joinBtn = document.getElementById("cloudJoin");
@@ -5909,6 +5964,9 @@ function finish(p) {
     session.levelUp = session.replay === undefined ? advanceLevel(p) : null;
   }
   save();
+  // The star, the money and the advance are worth getting into the database now
+  // rather than after four idle seconds - a child often taps straight on.
+  if (typeof cloud !== "undefined") cloud.flush();
   go("result");
 }
 
@@ -8076,7 +8134,15 @@ function backfill(p) {
   const hash = location.hash.replace(/^#/, "");
   if (hash.indexOf("s=") === 0) {
     const restored = decodeState(hash.slice(2));
-    if (restored && Array.isArray(restored.profiles)) { state = restored; save(); }
+    if (restored && Array.isArray(restored.profiles)) {
+      // The link no longer carries the code or the tombstones; keep whatever
+      // this device already had so restoring one does not silently mint a
+      // second family or resurrect a deleted player.
+      restored.cloud = state.cloud || restored.cloud;
+      restored.gone = state.gone || restored.gone;
+      state = restored;
+      save();
+    }
   }
   if (!state.profiles.length) {
     const saved = store.read();
