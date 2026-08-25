@@ -3872,6 +3872,7 @@ const speech = (function () {
       let fired = false;
       const done = function () { if (fired) return; fired = true; if (onEnd) onEnd(); };
       const src = clip(key);
+      if (typeof music !== "undefined") music.duck(2.2);
       if (src) {
         try {
           if (!el) { el = new Audio(); el.preload = "auto"; }
@@ -4038,6 +4039,9 @@ const audio = (function () {
         if (AC) ctx = new AC();
         if (ctx && ctx.state === "suspended") ctx.resume();
       } catch (e) { ctx = null; }
+      // A browser will not make a sound until it has been touched, so this is
+      // the earliest honest moment the music can begin.
+      if (ctx && typeof music !== "undefined") music.start();
     },
     /* One sound per thing that can happen, told apart by shape more than by
        pitch: a child across the room hears the rhythm first. */
@@ -4083,6 +4087,170 @@ const audio = (function () {
     // Older names, kept so nothing that still calls them falls silent.
     star:  function () { this.pass(); },
     done:  function () { [523.25, 659.25, 783.99].forEach(function (f, i) { tone(f, i * .1, .3, "sine", .12); }); }
+  };
+})();
+
+/* ============================================================
+   6b. MUSIC
+   ============================================================ */
+
+/* Composed at run time out of a scale and a few rules, so it costs the page
+   nothing and never loops back on itself exactly. See audio-build/p_music.py
+   for what it is playing and why. */
+const music = (function () {
+  const BEAT = 60 / 66;                 // slower than a resting heartbeat
+  const PHRASE = 8;                     // beats
+  const LOOKAHEAD = 0.7, TICK = 200;    // seconds of schedule, ms between ticks
+  const BASE = 0.055;                   // very quiet: the cues must cut through
+
+  // D major pentatonic - the yonanuki scale, no semitones, nothing can clash.
+  const LOW  = [73.42, 110];                                   // D2, A2
+  const PAD  = [146.83, 220];                                  // D3, A3
+  const KOTO = [293.66, 329.63, 369.99, 440, 493.88,           // D4 E4 F#4 A4 B4
+                587.33, 659.25, 739.99, 880, 987.77];          // D5 E5 F#5 A5 B5
+  const BELL = [1174.66, 1318.51];                             // D6, E6
+
+  let bus = null, lp = null, timer = null;
+  let next = 0, beat = 0, phrase = 0, here = 4, ducked = 0;
+
+  function ctx() { return audio.context(); }
+
+  // Nothing over a listening round: telling one Japanese word from another is
+  // the entire exercise, and a bed of fifths under it is the wrong help.
+  function wanted() {
+    if (quietMode()) return false;
+    if (document.hidden) return false;
+    if (session && !session.ended && session.mode === "listen") return false;
+    return true;
+  }
+
+  function level() {
+    const soft = ducked > (ctx() ? ctx().currentTime : 0) ? 0.2 : 1;
+    return BASE * volLevel() * soft;
+  }
+
+  function bench() {
+    const c = ctx();
+    if (!c || bus) return !!bus;
+    lp = c.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.value = 2600;          // takes the buzz off a raw triangle
+    bus = c.createGain();
+    bus.gain.value = 0;
+    lp.connect(bus).connect(c.destination);
+    return true;
+  }
+
+  // One plucked note: a triangle for the body, a quiet octave above for the
+  // shimmer, a fast attack and a long exponential tail.
+  function pluck(freq, at, dur, gain, type) {
+    const c = ctx();
+    const amp = c.createGain();
+    amp.gain.setValueAtTime(0.0001, at);
+    amp.gain.exponentialRampToValueAtTime(Math.max(0.0002, gain), at + 0.012);
+    amp.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+    amp.connect(lp);
+    const o = c.createOscillator();
+    o.type = type || "triangle";
+    o.frequency.value = freq;
+    o.connect(amp);
+    o.start(at);
+    o.stop(at + dur + 0.05);
+    if (!type) {                        // the shimmer, only on the koto
+      const o2 = c.createOscillator();
+      o2.type = "sine";
+      o2.frequency.value = freq * 2.004;
+      const a2 = c.createGain();
+      a2.gain.setValueAtTime(0.0001, at);
+      a2.gain.exponentialRampToValueAtTime(Math.max(0.0002, gain * 0.25), at + 0.012);
+      a2.gain.exponentialRampToValueAtTime(0.0001, at + dur * 0.6);
+      o2.connect(a2).connect(lp);
+      o2.start(at);
+      o2.stop(at + dur * 0.6 + 0.05);
+    }
+  }
+
+  // A slow swell rather than a pluck: the bass and the pad breathe.
+  function swell(freq, at, dur, gain) {
+    const c = ctx();
+    const amp = c.createGain();
+    amp.gain.setValueAtTime(0.0001, at);
+    amp.gain.linearRampToValueAtTime(gain, at + dur * 0.35);
+    amp.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+    const o = c.createOscillator();
+    o.type = "sine";
+    o.frequency.value = freq;
+    o.connect(amp).connect(lp);
+    o.start(at);
+    o.stop(at + dur + 0.05);
+  }
+
+  function step() {
+    // A walk, not a jump: mostly one step up or down the scale, rarely more.
+    const r = Math.random();
+    const d = r < 0.34 ? -1 : r < 0.68 ? 1 : r < 0.8 ? -2 : r < 0.92 ? 2 : 0;
+    here = Math.max(0, Math.min(KOTO.length - 1, here + d));
+    return KOTO[here];
+  }
+
+  function schedule(at) {
+    const inPhrase = beat % PHRASE;
+    const resting = (phrase % 4) === 3;      // every fourth phrase, a breath
+
+    if (inPhrase === 0) {
+      const root = LOW[(phrase % 2)];
+      swell(root, at, BEAT * 3.6, 0.09);
+      swell(PAD[(phrase % 2)], at + 0.1, BEAT * 3.2, 0.045);
+    }
+    if (!resting) {
+      // Beats that carry a note. The gaps matter as much as the notes.
+      const strong = [0, 2, 3, 5, 7].indexOf(inPhrase) !== -1;
+      if (strong ? Math.random() < 0.85 : Math.random() < 0.25) {
+        pluck(step(), at, 1.5, 0.075);
+      }
+      if (inPhrase === PHRASE - 1 && Math.random() < 0.35) {
+        pluck(BELL[Math.random() < 0.5 ? 0 : 1], at + BEAT * 0.5, 2.4, 0.03, "sine");
+      }
+    }
+
+    beat += 1;
+    if (beat % PHRASE === 0) phrase += 1;
+  }
+
+  function tick() {
+    const c = ctx();
+    if (!c || !bus) return;
+    const want = wanted() ? level() : 0;
+    // Always a ramp: a gain that jumps is a click.
+    bus.gain.setTargetAtTime(want, c.currentTime, 0.25);
+    if (!wanted()) { next = Math.max(next, c.currentTime + 0.05); return; }
+    if (next < c.currentTime) next = c.currentTime + 0.05;
+    while (next < c.currentTime + LOOKAHEAD) {
+      schedule(next);
+      next += BEAT;
+    }
+  }
+
+  return {
+    start: function () {
+      if (!bench() || timer) return;
+      next = 0;
+      timer = window.setInterval(tick, TICK);
+      tick();
+    },
+    stop: function () {
+      if (timer) { window.clearInterval(timer); timer = null; }
+      const c = ctx();
+      if (bus && c) bus.gain.setTargetAtTime(0, c.currentTime, 0.2);
+    },
+    // Speech is the point of the game; the music gets out of its way.
+    duck: function (seconds) {
+      const c = ctx();
+      if (!c) return;
+      ducked = Math.max(ducked, c.currentTime + (seconds || 2));
+      tick();
+    },
+    playing: function () { return !!timer; }
   };
 })();
 
@@ -4290,12 +4458,12 @@ function renderTopbar() {
      the noise to stop is usually not the one holding the mouse. */
   html += '<button class="purse sound" id="toSound" title="' +
           (quietMode()
-            ? 'Game sounds are off. The ding, the buzz and the little fanfare are silent; ' +
-              'the Japanese still plays.'
-            : 'Turn off the game sounds - the ding, the buzz and the little fanfare. ' +
-              'The Japanese keeps playing.') +
+            ? 'Music and game sounds are off. The Japanese still plays.'
+            : 'Turn off the music and the game sounds - the ding, the buzz and the ' +
+              'little fanfare. The Japanese keeps playing.') +
           '" aria-pressed="' + (quietMode() ? "true" : "false") +
-          '" aria-label="Game sounds">' + (quietMode() ? "\ud83d\udd07" : "\ud83c\udfb5") + '</button>' +
+          '" aria-label="Music and game sounds">' +
+          (quietMode() ? "\ud83d\udd07" : "\ud83c\udfb5") + '</button>' +
           '<button class="purse vol" id="toVol" title="How loud everything is - ' +
           'the Japanese and the game sounds together. Tap to go ' +
           ['quieter', 'quieter', 'back to loud'][volStep()] + '." aria-label="Volume">' +
@@ -4307,7 +4475,7 @@ function renderTopbar() {
     state.quiet = !quietMode();
     save();
     // Turning them back on should make a sound; turning them off should not.
-    if (!quietMode()) { audio.prime(); audio.good(); }
+    if (!quietMode()) { audio.prime(); audio.good(); music.start(); }
     renderTopbar();
   };
   const vol = document.getElementById("toVol");
@@ -7714,6 +7882,9 @@ function backfill(p) {
   window.addEventListener("online", function () { cloud.flush(); });
   document.addEventListener("visibilitychange", function () {
     if (document.visibilityState === "hidden") cloud.flush(true);
+    // The music checks document.hidden itself on the next tick; this only
+    // wakes the context back up when the tab returns.
+    if (document.visibilityState === "visible") audio.prime();
   });
   render();
   photos.start();
