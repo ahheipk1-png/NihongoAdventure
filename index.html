@@ -1081,7 +1081,7 @@ button.board-tag.leave:focus-visible { outline: 2.5px solid var(--ai); outline-o
   background: var(--paper); border: 1.5px solid var(--rule); border-radius: 14px;
 }
 .cloudbar-detail .fineprint { margin: 0 0 8px; }
-.profile.admincard { border-color: var(--ai); background: var(--ai-wash); }
+.profile.admincard { border-color: var(--ai); background: var(--ai-wash); cursor: default; }
 .cloud-pill {
   font-size: 14px; line-height: 1; padding: 6px 9px; border-radius: 999px;
   background: var(--ai-wash); color: var(--ai); border: 1px solid transparent;
@@ -4897,12 +4897,17 @@ function renderHome() {
     const isAdmin = (p.name || "").trim().toLowerCase() === "admin";
     if (isAdmin) {
       return '<div class="pslot">' +
-               '<button class="profile admincard" data-open="' + p.id + '">' +
+               '<div class="profile admincard">' +
                  '<span class="profile-face" aria-hidden="true">🔑</span>' +
                  '<span class="profile-name">' + esc(p.name) + '</span>' +
-                 '<span class="profile-meta">Grown-ups’ page</span>' +
-                 '<span class="profile-meta">Tap to manage players →</span>' +
-               '</button>' +
+                 '<span class="profile-meta">The grown-up</span>' +
+                 '<div class="row" style="gap:6px;justify-content:center;margin-top:4px">' +
+                   '<button class="btn btn-sm btn-primary" data-adminmanage="' + p.id + '" ' +
+                     'title="Approve players, reset passwords, edit anything">Manage</button>' +
+                   '<button class="btn btn-sm" data-adminplay="' + p.id + '" ' +
+                     'title="Play the game as the grown-up — every topic and level open">Play</button>' +
+                 '</div>' +
+               '</div>' +
              '</div>';
     }
     return '<div class="pslot">' +
@@ -4942,6 +4947,20 @@ function renderHome() {
         'when you finish and bookmark it — progress comes back from that link next time.</div>') +
     '</div>';
 
+  screenEl.querySelectorAll("[data-adminmanage]").forEach(function (b) {
+    b.onclick = function () { location.href = location.origin + "/admin"; };
+  });
+  screenEl.querySelectorAll("[data-adminplay]").forEach(function (b) {
+    b.onclick = function () {
+      audio.prime();
+      const who = state.profiles.find(function (x) { return x.id === b.getAttribute("data-adminplay"); });
+      if (!who) return;
+      // The grown-up sees everything; the flag persists and syncs.
+      if (!who.unlockAll) { who.unlockAll = true; save(); }
+      if (who.pending) { window.alert("This player is still waiting for approval — open Manage first."); return; }
+      openPlayer(who);
+    };
+  });
   screenEl.querySelectorAll("[data-open]").forEach(function (b) {
     b.onclick = function () {
       audio.prime();
@@ -5001,6 +5020,8 @@ function renderProfileEditor(p) {
 
   screenEl.innerHTML =
     '<div class="stack">' +
+      '<div class="row"><button class="btn btn-ghost btn-sm" id="backP" ' +
+        'title="Leave without saving">← Back</button></div>' +
       '<div class="sheet stack">' +
         '<span class="eyebrow">' + (isNew ? "New player" : "Player settings") + '</span>' +
         '<h2>' + (isNew ? "Who&rsquo;s joining?" : "Edit " + esc(p.name)) + '</h2>' +
@@ -5026,7 +5047,7 @@ function renderProfileEditor(p) {
       '<div class="sheet stack">' +
         '<label class="row" style="gap:8px;font-weight:700;font-size:14.5px;cursor:pointer">' +
           '<input type="checkbox" id="unlockAllIn"' + (draft.unlockAll ? " checked" : "") + ' style="width:19px;height:19px">' +
-          'Open every topic now (skip the order)</label>' +
+          'Open every topic and every level (skip the order)</label>' +
       '</div>' +
       '<div class="row">' +
         '<button class="btn btn-primary" id="saveP">' + (isNew ? "Start playing" : "Save") + '</button>' +
@@ -5085,10 +5106,12 @@ function renderProfileEditor(p) {
       }
     });
   };
-  document.getElementById("cancelP").onclick = function () {
+  const leave = function () {
     draft = null;
     if (isNew) { state.activeId = null; go("home"); } else { go("menu"); }
   };
+  document.getElementById("cancelP").onclick = leave;
+  document.getElementById("backP").onclick = leave;
   const del = document.getElementById("delP");
   if (del) del.onclick = function () {
     if (!window.confirm("Delete " + p.name + " and all their progress?")) return;
@@ -5248,20 +5271,25 @@ function renderLevels(p) {
     const past = i < cur.index;
     const here = i === cur.index;
     const star = !!perfect[i];
+    // "Skip the order" opens the levels ahead as well as the topics.
+    const ahead = !past && !here && !!p.unlockAll;
+    const canPlay = past || here || ahead;
     const shown = info.kana.slice(0, 6).join(" ") + (info.kana.length > 6 ? " …" : "");
-    const state = past ? "past" : here ? "here" : "locked";
-    const tag = past || here ? "button" : "span";
+    const state = here ? "here" : canPlay ? "past" : "locked";
+    const tag = canPlay ? "button" : "span";
     const right = star ? '<span class="lvlrow-star" title="Cleared without a mistake">★</span>'
                 : here ? '<span class="lvlrow-go">Play ›</span>'
                 : past ? '<span class="lvlrow-go">Again ›</span>'
+                : ahead ? '<span class="lvlrow-go">Play ›</span>'
                 : '<span class="lvlrow-lock" aria-hidden="true">🔒</span>';
     const tip = star
       ? "Level " + (i + 1) + " — already cleared without a mistake. Play it again?"
       : past ? "Level " + (i + 1) + " — play it again; clear it with no mistakes for a ★"
       : here ? "Level " + (i + 1) + " — where you are now. Tap to play it."
+      : ahead ? "Level " + (i + 1) + " — ahead of the ladder, but every level is open for you"
       : "Level " + (i + 1) + " — not open yet; reach it by passing the levels before it";
     rows.push('<' + tag + ' class="lvlrow ' + state + '" title="' + esc(tip) + '"' +
-      (past || here ? ' data-lv="' + i + '"' : ' aria-disabled="true"') + '>' +
+      (canPlay ? ' data-lv="' + i + '"' : ' aria-disabled="true"') + '>' +
         '<span class="lvlrow-n">' + (i + 1) + '</span>' +
         '<span class="lvlrow-main">' +
           '<span class="lvlrow-title">' + game.icon + ' ' + esc(game.title) +
@@ -5916,15 +5944,18 @@ function renderMenu(p) {
     const cls = i < lv.index ? "learned" : i === lv.index ? "current" : "";
     const flawless = !!perfect[i];
     const past = i < lv.index;
-    const tag = past ? "button" : "span";
+    // Every rung is a door for a player whose order is unlocked.
+    const canGo = past || (!!p.unlockAll && i !== lv.index);
+    const tag = canGo ? "button" : "span";
     const label = flawless
       ? "Level " + (i + 1) + " — already cleared without a mistake. Play it again?"
       : past
         ? "Level " + (i + 1) + " — play it again; no mistakes earns a green star"
+        : canGo ? "Level " + (i + 1) + " — open for you; tap to play it"
         : i === lv.index ? "You are here" : "Not open yet";
     return '<' + tag + ' class="rung ' + cls + (step.kind === "review" ? " rev" : "") +
-           (flawless ? " perfect" : "") + (past ? " replay" : "") + '"' +
-           (past ? ' data-replay="' + i + '"' : '') +
+           (flawless ? " perfect" : "") + (canGo ? " replay" : "") + '"' +
+           (canGo ? ' data-replay="' + i + '"' : '') +
            ' title="' + esc(label) + '">' + (i + 1) +
            (flawless ? '<span class="rung-star" aria-label="cleared without a mistake">★</span>' : '') +
            '</' + tag + '>';

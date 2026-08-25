@@ -34,6 +34,9 @@ const PAGE = `<!doctype html>
   }
   .wrap { max-width: 1000px; margin: 0 auto; }
   h1 { font-size: 21px; margin: 0 0 2px; }
+  .backlink { display: inline-block; margin: 0 0 12px; color: var(--ai); font-weight: 700;
+              font-size: 13px; text-decoration: none; }
+  .backlink:hover { text-decoration: underline; }
   .sub { color: var(--faint); font-size: 13px; margin: 0 0 22px; }
   .sheet {
     background: var(--card); border: 1px solid var(--line); border-radius: 16px;
@@ -86,6 +89,7 @@ const PAGE = `<!doctype html>
 </head>
 <body>
 <div class="wrap">
+  <a class="backlink" href="/">← Back to the game</a>
   <h1>Nihongo Adventure</h1>
   <p class="sub">Every player in the cloud, what they have done, and when they last played.</p>
 
