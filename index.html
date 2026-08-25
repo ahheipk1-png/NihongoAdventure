@@ -3695,21 +3695,31 @@ function studyWordsHTML(p, words) {
   }).join("");
 }
 
+/* The list of things this level actually asks about, and nothing else.
+
+   On a Word Building level the questions are whole words, so the sheet is those
+   words - not the letters they are spelled from, which are never asked there.
+   Everywhere else the questions are the board's own items plus whatever it is
+   borrowing back for review. */
+function studyItems(p, lv) {
+  if (lv.game === "word" && courseOf(p).kind === "kana") {
+    return wordsForLevel(p).map(function (x) { return x.w; });
+  }
+  return studyKeys(p, lv).all;
+}
+
 function studySheetHTML(p, lv) {
+  // Word Building asks for the words themselves, so the sheet is exactly those
+  // words - the same five the game will ask, no letters listed on top of them.
+  if (lv.game === "word" && courseOf(p).kind === "kana") {
+    const words = wordsForLevel(p);
+    if (words.length) return '<div class="study-list">' + studyWordsHTML(p, words) + '</div>';
+  }
   const keys = studyKeys(p, lv);
   let out = '<div class="study-list">' + studyRowsHTML(p, lv, keys.own) + '</div>';
   if (keys.extra.length) {
     out += '<div class="study-again">Also on this board \u2014 met before, due for another look</div>' +
            '<div class="study-list">' + studyRowsHTML(p, lv, keys.extra) + '</div>';
-  }
-  // On a vocabulary topic the words are the items and are already above.
-  if (lv.game === "word" && courseOf(p).kind === "kana") {
-    const words = wordsForLevel(p);
-    if (words.length) {
-      out += '<div class="study-again">The words you will build \u2014 the letters you know, ' +
-             'put together</div>' +
-             '<div class="study-list">' + studyWordsHTML(p, words) + '</div>';
-    }
   }
   return out;
 }
@@ -5436,19 +5446,27 @@ function slideHTML(p, lv, key, i, n) {
              esc(key).replace(/\uff3f/g, '<span class="study-ans">' + esc(it.ans) + '</span>') + '</div>' +
            '<div class="slide-en">' + esc(it.en || "") + '</div>';
   } else if (lv.game === "word") {
+    // A word is not an item of a kana course, so its meaning lives in the word
+    // list, not in itemOf(); fall back to that before the raw key.
+    const w = (c.words || []).filter(function (x) { return x.w === key; })[0] || {};
+    const mean = w.en || showForm(p, key, forms[forms.length - 1]);
     body = '<div class="slide-jp" lang="ja">' + esc(key) + '</div>' +
            '<div class="spell-row">' + key.split("").map(function (ch) {
              return '<span class="spell-tile">' + esc(ch) + '</span>';
            }).join('<span class="spell-plus" aria-hidden="true">+</span>') + '</div>' +
-           '<div class="slide-en">' + esc(showForm(p, key, forms[forms.length - 1])) + '</div>';
+           '<div class="slide-en">' + esc(mean) + '</div>';
   } else {
     body = '<div class="slide-jp ' + formClass(forms[0]) + '">' + esc(showForm(p, key, forms[0])) + '</div>' +
            forms.slice(1).map(function (fm) {
              return '<div class="slide-form ' + formClass(fm) + '">' + esc(showForm(p, key, fm)) + '</div>';
            }).join("");
   }
+  const wpic = (lv.game === "word"
+    ? ((c.words || []).filter(function (x) { return x.w === key; })[0] || {}).pic
+    : null);
   const pic = picFor(key) ? picImg(key, "slide-img")
-            : (it.pic && !isGrammar ? '<span class="slide-pic" aria-hidden="true">' + it.pic + '</span>' : '');
+            : (wpic ? '<span class="slide-pic" aria-hidden="true">' + wpic + '</span>'
+            : (it.pic && !isGrammar ? '<span class="slide-pic" aria-hidden="true">' + it.pic + '</span>' : ''));
   return '<div class="slide">' +
            '<span class="slide-count">' + (i + 1) + ' / ' + n + '</span>' +
            pic + body +
@@ -5474,7 +5492,7 @@ function startStudyPlay(p, host, lv) {
   const list = host.querySelector(".study-list");
   const playBtn = host.querySelector(".study-play");
   if (!stage) return;
-  const items = studyKeys(p, lv).all;
+  const items = studyItems(p, lv);
   studyPlayer.paused = false;
   studyPlayer.idx = 0;
   const alive = function () { return mySeq === studyPlayer.seq && document.body.contains(host); };
