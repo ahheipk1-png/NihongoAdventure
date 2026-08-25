@@ -485,7 +485,7 @@ button.board-tag.leave:focus-visible { outline: 2.5px solid var(--ai); outline-o
   box-shadow: 0 0 0 3px var(--rule-strong), var(--shadow);
   will-change: transform;
 }
-.wheel.spinning { animation: wheelspin 1300ms linear infinite; }
+.wheel.spinning { animation: wheelspin 3600ms linear infinite; }
 .wheel.settling { transition: transform 1.4s cubic-bezier(.15,.85,.2,1); }
 @keyframes wheelspin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 .wheel-slot { position: absolute; inset: 0; display: flex; justify-content: center; pointer-events: none; }
@@ -1064,8 +1064,16 @@ button.board-tag.leave:focus-visible { outline: 2.5px solid var(--ai); outline-o
 }
 .wcard-read { font-family: var(--font-kana); font-size: 11px; color: var(--ink-faint); }
 .purse.sound, .purse.vol { font-size: 15px; padding: 6px 10px; }
+.purse.levels { font-size: 13px; font-weight: 700; }
 .study-again { margin: 14px 0 6px; font-size: 12px; letter-spacing: .04em;
                text-transform: uppercase; opacity: .65; text-align: center; }
+.cloudbar { text-align: center; margin: 2px 0 4px; color: var(--ink-faint); font-size: 12px; }
+.cloudbar-note { font-weight: 700; }
+.cloudbar-detail {
+  margin: 8px auto 0; max-width: 440px; padding: 12px 14px;
+  background: var(--paper); border: 1.5px solid var(--rule); border-radius: 14px;
+}
+.cloudbar-detail .fineprint { margin: 0 0 8px; }
 .cloud-pill {
   font-size: 14px; line-height: 1; padding: 6px 9px; border-radius: 999px;
   background: var(--ai-wash); color: var(--ai); border: 1px solid transparent;
@@ -4513,6 +4521,9 @@ function renderTopbar() {
               ' — back to the topic menu">' +
               '<span class="who-face" aria-hidden="true">' + esc(p.face) + '</span>' +
               '<span class="who-name">' + esc(p.name) + '</span></button>' +
+            (screen !== "levels"
+              ? '<button class="purse levels" id="toLevels" title="Back to the level list — pick which level to play">\u2190 Levels</button>'
+              : '') +
             '<span class="stars green" title="Levels cleared without a single mistake">' +
               '★ ' + greenStars(p) + '</span>' +
             '<span class="stars" title="What you can spend — green-star money, set bonuses and card value, minus what you have bought">' +
@@ -4561,6 +4572,8 @@ function renderTopbar() {
   if (home) home.onclick = function () { stopLoops(); state.activeId = null; go("home"); };
   const menu = document.getElementById("toMenu");
   if (menu) menu.onclick = function () { stopLoops(); go("menu"); };
+  const lvl = document.getElementById("toLevels");
+  if (lvl) lvl.onclick = function () { stopLoops(); go("levels"); };
   const w = document.getElementById("toWallet");
   if (w) w.onclick = function () { stopLoops(); go("wallet"); };
   const mp = document.getElementById("toMap");
@@ -4665,7 +4678,7 @@ function tipBtnHTML(p) {
             : kind === "see" ? "See its picture for " + cash(price) + ". Counts as a tip: no green star this round."
             : "Hearing or seeing it would give it away, so this greys out one wrong option for " + cash(price) + ".";
   return '<button class="btn btn-sm tipbtn" id="tipBtn"' + ((used || short) ? ' disabled' : '') +
-         ' title="' + esc(why) + '">\U0001f4a1 ' + label + ' \u00b7 ' + cash(price) + '</button>';
+         ' title="' + esc(why) + '">💡 ' + label + ' \u00b7 ' + cash(price) + '</button>';
 }
 
 // A picture, shown beside the board for a moment and then gone.
@@ -4767,51 +4780,45 @@ function cloudSheet() {
   if (!cloud.ready()) return "";
   const c = cloud.code();
 
-  // On by default: once there is a player and a cloud, a code exists and this
-  // shows it. The join box stays reachable so a second computer - or this one,
-  // if it made its own family by mistake - can still join an existing code.
+  /* Automatic, so this is quiet. A child never needs it; a parent linking a
+     second computer taps "Play on another computer" for the code and join box. */
   if (c) {
-    return '<div class="sheet stack">' +
-             '<span class="eyebrow">\u2601 Saved to the cloud, automatically</span>' +
-             '<div class="row">' +
-               '<span class="code-box" title="Your family code. Type it on another computer to open these same players there.">' +
-                 esc(c.slice(0, 4)) + '<i>-</i>' + esc(c.slice(4)) + '</span>' +
-               '<button class="btn btn-sm" id="cloudCopy" title="Copy the family code">Copy</button>' +
+    return '<div class="cloudbar">' +
+             '<span class="cloudbar-note">\u2601 Progress saves automatically</span> ' +
+             '<button class="linkish" id="cloudMore">Play on another computer</button>' +
+             '<div class="cloudbar-detail" id="cloudDetail" hidden>' +
+               '<p class="fineprint">On the other computer, open the game and type this code:</p>' +
+               '<div class="row" style="justify-content:center">' +
+                 '<span class="code-box">' + esc(c.slice(0, 4)) + '<i>-</i>' + esc(c.slice(4)) + '</span>' +
+                 '<button class="btn btn-sm" id="cloudCopy" title="Copy the family code">Copy</button>' +
+               '</div>' +
+               '<p class="fineprint">Already have a code from another computer? ' +
+                 '<button class="linkish" id="cloudJoinToggle">Enter it here</button> ' +
+                 '\u00b7 <button class="linkish" id="cloudOff">Stop saving on this computer</button></p>' +
+               '<div class="row" id="cloudJoinRow" style="justify-content:center" hidden>' +
+                 '<input class="code-in" id="cloudCode" maxlength="9" placeholder="CODE" aria-label="Family code" />' +
+                 '<button class="btn btn-sm" id="cloudJoin">Use this code</button>' +
+               '</div>' +
                '<span class="grow-label" id="cloudMsg">' + esc(cloud.note()) + '</span>' +
-             '</div>' +
-             '<p class="fineprint">Type this code on another computer and the same players, levels, ' +
-               'stars, cards and money open there. Keep it in the family. ' +
-               '<button class="linkish" id="cloudJoinToggle" title="Open a box to type a different family code">Use a different code</button> ' +
-               '\u00b7 <button class="linkish" id="cloudOff" title="Stop saving to the cloud on this computer. Nothing already saved is deleted.">Stop</button></p>' +
-             '<div class="row" id="cloudJoinRow" hidden>' +
-               '<input class="code-in" id="cloudCode" maxlength="9" placeholder="CODE" aria-label="Family code" />' +
-               '<button class="btn btn-sm" id="cloudJoin" title="Bring that family\'s players onto this computer">Use this code</button>' +
              '</div>' +
            '</div>';
   }
 
-  // No code yet - either a brand-new computer, or one where sync was stopped.
-  // A fresh second computer belongs here: type the family code rather than
-  // start a rival family.
-  return '<div class="sheet stack">' +
-           '<span class="eyebrow">Same progress on every computer</span>' +
-           '<p class="fineprint">' +
-             (state.profiles.length
-               ? 'Saving to the cloud turns on by itself as soon as a player is here. '
-               : 'Already set this up on another computer? Type the family code and the same ' +
-                 'players open here. Or just start playing - a new family is saved for you.') +
-             '</p>' +
-           '<div class="row">' +
+  /* No code yet - a fresh second computer, or one where saving was stopped.
+     The one thing worth offering is joining an existing family. */
+  return '<div class="cloudbar">' +
+           '<span class="cloudbar-note">' +
+             (state.profiles.length ? '\u2601 Progress saves automatically'
+                                    : 'Already playing on another computer?') + '</span>' +
+           '<div class="row" style="justify-content:center">' +
              '<input class="code-in" id="cloudCode" maxlength="9" placeholder="CODE" ' +
                'title="The eight-letter code from the computer you already set up" aria-label="Family code" />' +
-             '<button class="btn btn-sm" id="cloudJoin" title="Bring this family\'s players onto this computer">Use this code</button>' +
-             (cloud.stopped() ? '<span class="grow-label">or</span>' +
-               '<button class="btn btn-sm" id="cloudOn" title="Turn saving back on for this computer">Turn saving back on</button>' : '') +
+             '<button class="btn btn-sm" id="cloudJoin" title="Bring that family\'s players onto this computer">Use this code</button>' +
+             (cloud.stopped() ? '<button class="btn btn-sm" id="cloudOn" title="Turn saving back on for this computer">Turn saving on</button>' : '') +
            '</div>' +
            '<span class="grow-label" id="cloudMsg">' + esc(cloud.note()) + '</span>' +
          '</div>';
 }
-
 function wireCloud() {
   const msg = document.getElementById("cloudMsg");
   function say(t) { if (msg) msg.textContent = t; }
@@ -4822,6 +4829,12 @@ function wireCloud() {
     say("making a code…");
     delete (state.cloud || {}).off;
     cloud.begin().then(function () { render(); });
+  };
+
+  const more = document.getElementById("cloudMore");
+  if (more) more.onclick = function () {
+    const d = document.getElementById("cloudDetail");
+    if (d) d.hidden = !d.hidden;
   };
 
   const toggle = document.getElementById("cloudJoinToggle");
@@ -4868,9 +4881,10 @@ function renderHome() {
              '<button class="profile" data-open="' + p.id + '">' +
                '<span class="profile-face" aria-hidden="true">' + esc(p.face) + '</span>' +
                '<span class="profile-name">' + esc(p.name) + '</span>' +
-               '<span class="profile-meta">' + courseOf(p).title + ' · ' + lv.label + '</span>' +
-               '<span class="profile-meta">' + done + ' of ' + total + ' mastered</span>' +
-               '<span class="profile-bar"><i style="width:' + pct + '%"></i></span>' +
+               '<span class="profile-meta">' + esc(courseOf(p).title) + '</span>' +
+               '<span class="profile-meta">' + esc(lv.label + ' of ' + lv.total) + '</span>' +
+               '<span class="profile-bar"><i style="width:' +
+                 (lv.total ? Math.round((lv.number / lv.total) * 100) : 0) + '%"></i></span>' +
              '</button>' +
 
            '</div>';
@@ -5526,8 +5540,8 @@ function slideHTML(p, lv, key, i, n) {
            '<span class="slide-count">' + (i + 1) + ' / ' + n + '</span>' +
            pic + body +
            (speech.can(key)
-             ? '<button class="say big slide-say stage-replay" title="Hear it again" aria-label="Hear it again">\U0001f50a</button>'
-             : '<span class="slide-say quiet" aria-hidden="true">\U0001f4d6</span>') +
+             ? '<button class="say big slide-say stage-replay" title="Hear it again" aria-label="Hear it again">🔊</button>'
+             : '<span class="slide-say quiet" aria-hidden="true">📖</span>') +
            '<div class="row slide-ctl">' +
              '<button class="btn btn-sm stage-pause" title="Pause the sequence">' +
                (studyPlayer.paused ? '\u25b6 Resume' : '\u23f8 Pause') + '</button>' +
@@ -5976,7 +5990,15 @@ function buildQuestion(p) {
   const t = tierOf(p);
   const answer = nextKana(p, session.pool, lastPrompt);
   lastPrompt = answer;
-  const fm = pickForms(p);
+  let fm = pickForms(p);
+  // Hearing a sound and choosing its romaji is no test - the romaji IS the
+  // sound written down. A listening round answers with the character instead.
+  if (session.mode === "listen" && fm.to === "romaji") {
+    const ff = (session.level && session.level.forms) || courseOf(p).forms;
+    const glyph = ff.indexOf("jp") !== -1 ? "jp"
+      : (ff.filter(function (f) { return f !== "romaji"; })[0] || "jp");
+    fm = { from: "romaji", to: glyph };
+  }
   const options = shuffle([answer].concat(distractors(p, answer, t.choices - 1, session.pool, fm.to)));
   return { answer: answer, from: fm.from, to: fm.to, options: options };
 }
@@ -7295,7 +7317,9 @@ function renderRoom(p) {
           el.classList.remove("spinning");
           void el.offsetWidth;
           el.classList.add("settling");
-          const target = cur + ((360 - ((cur + idx * slice + slice / 2) % 360)) % 360) + 720;
+          // Centre the very slice under the pin when STOP was pressed - no extra
+          // turns, or it looks as though the tap was ignored.
+          const target = cur + ((360 - ((cur + idx * slice + slice / 2) % 360)) % 360);
           el.style.transform = "rotate(" + target + "deg)";
         }
         setTimeout(function () {
@@ -7340,7 +7364,7 @@ function renderRoom(p) {
         (room.prize.sets && room.prize.sets.length
           ? room.prize.sets.map(function (st) {
               return '<div class="setwin">' +
-                       '<span class="setwin-icon" aria-hidden="true">\U0001f389</span>' +
+                       '<span class="setwin-icon" aria-hidden="true">🎉</span>' +
                        '<span><strong>' + esc(st.label) + ' complete</strong> \u2014 every card in the set. ' +
                        '<strong>+' + cash(st.bonus) + '</strong> set bonus.</span>' +
                      '</div>';
