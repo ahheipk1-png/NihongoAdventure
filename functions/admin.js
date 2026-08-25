@@ -74,6 +74,8 @@ const PAGE = `<!doctype html>
   .bar { height: 7px; background: var(--line); border-radius: 99px; overflow: hidden; min-width: 70px; }
   .bar i { display: block; height: 100%; background: var(--ai); }
   .gone td { opacity: .5; }
+  .pendtag { font-size: 11px; font-weight: 800; color: var(--ai); background: var(--wash); border-radius: 999px; padding: 2px 8px; }
+  .btn.approve { padding: 3px 10px; font-size: 12px; background: var(--good); border-color: var(--good); color: #fff; }
   .msg { font-size: 13px; color: var(--faint); }
   .msg.bad { color: var(--bad); }
   .msg.good { color: var(--good); }
@@ -218,7 +220,11 @@ function drawFamilies() {
       var pct = st.items ? Math.round((st.mastered / st.items) * 100) : 0;
       return '<tr class="' + (p.deleted ? "gone" : "") + '" data-code="' + esc(f.code) + '" data-pid="' + esc(p.pid) + '">' +
         '<td><div class="who"><span class="face">' + esc(p.face) + '</span><b>' + esc(p.name) + '</b>' +
-          (p.deleted ? ' <span class="muted">(deleted)</span>' : '') + '</div></td>' +
+          (p.hasPw ? ' 🔒' : '') +
+          (p.deleted ? ' <span class="muted">(deleted)</span>' : '') +
+          (p.pending ? ' <span class="pendtag">waiting</span> ' +
+            '<button class="btn approve" data-approve="' + esc(p.pid) + '" data-code="' + esc(f.code) + '">Approve</button>' : '') +
+          '</div></td>' +
         '<td>' + esc(st.topic || p.course || "-") +
           (st.levels ? ' <span class="muted">' + n(st.level) + " / " + n(st.levels) + '</span>' : '') + '</td>' +
         '<td>' + (st.stars == null ? "-" : "\\u2605 " + n(st.stars)) + '</td>' +
@@ -245,6 +251,12 @@ function drawFamilies() {
 
   Array.prototype.forEach.call(document.querySelectorAll("tr[data-pid]"), function (tr) {
     tr.onclick = function () { open(tr.getAttribute("data-code"), tr.getAttribute("data-pid")); };
+  });
+  Array.prototype.forEach.call(document.querySelectorAll("[data-approve]"), function (b) {
+    b.onclick = function (e) {
+      e.stopPropagation();
+      api({ action: "approve", code: b.getAttribute("data-code"), pid: b.getAttribute("data-approve") }).then(load);
+    };
   });
   Array.prototype.forEach.call(document.querySelectorAll("[data-drop]"), function (b) {
     b.onclick = function (e) {
@@ -333,6 +345,8 @@ function drawEditor() {
 
     '<div class="row">' +
       '<button class="primary" id="eSave">Save</button>' +
+      (PICK.data && PICK.data.pending ? '<button class="approve" id="eApprove">Approve player</button>' : '') +
+      (PICK.data && PICK.data.pw ? '<button id="eClearPw">Reset password</button>' : '') +
       (PICK.deleted ? '<button id="eRestore">Restore</button>'
                     : '<button class="danger" id="eDrop">Delete this player</button>') +
       '<button id="eClose">Close</button>' +
@@ -353,6 +367,19 @@ function drawEditor() {
 
   document.getElementById("eClose").onclick = function () {
     document.getElementById("editor").hidden = true; PICK = null;
+  };
+  var appr = document.getElementById("eApprove");
+  if (appr) appr.onclick = function () {
+    api({ action: "approve", code: PICK.code, pid: PICK.pid }).then(function () {
+      load().then(function () { open(PICK.code, PICK.pid); });
+    });
+  };
+  var clr = document.getElementById("eClearPw");
+  if (clr) clr.onclick = function () {
+    if (!confirm("Reset this player's password? They will be able to open with no password until a new one is set.")) return;
+    api({ action: "clearpw", code: PICK.code, pid: PICK.pid }).then(function () {
+      load().then(function () { open(PICK.code, PICK.pid); });
+    });
   };
   var drop = document.getElementById("eDrop");
   if (drop) drop.onclick = function () {

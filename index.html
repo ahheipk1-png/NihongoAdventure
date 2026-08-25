@@ -3428,7 +3428,8 @@ function newProfile(name, face, tier) {
     id: "p" + Math.floor(Math.random() * 1e9).toString(36) + state.profiles.length,
     name: name, face: face, tier: tier,
     course: "hiragana", progress: { hiragana: { level: 0, boxes: {}, perfect: {} } },
-    cards: {}, money: 0, spent: 0, landmarks: {}, setsPaid: {}
+    cards: {}, money: 0, spent: 0, landmarks: {}, setsPaid: {},
+    pw: "", pending: true       // a grown-up approves a new player before it plays
   };
 }
 
@@ -4353,6 +4354,21 @@ function esc(s) {
   });
 }
 
+/* A player's password is kept only as a hash, so a synced save - and the
+   parents' list at /admin - never carry the word itself. Async because
+   crypto.subtle is; callers wait for it. */
+function hashPw(word) {
+  const w = String(word == null ? "" : word);
+  if (!w) return Promise.resolve("");
+  return crypto.subtle.digest("SHA-256", new TextEncoder().encode("nihongo-pw:" + w))
+    .then(function (buf) {
+      const v = new Uint8Array(buf);
+      let hex = "";
+      for (let i = 0; i < v.length; i++) hex += v[i].toString(16).padStart(2, "0");
+      return hex;
+    });
+}
+
 function stopLoops() {
   if (session && session.raf) { cancelAnimationFrame(session.raf); session.raf = null; }
   if (session && session.powerRaf) { cancelAnimationFrame(session.powerRaf); session.powerRaf = null; }
@@ -4846,6 +4862,30 @@ function wireCloud() {
   };
 }
 
+/* Opening a player: if it has a password, it must be typed first. A parent can
+   always get in from /admin, and can reset a forgotten password there. */
+function openPlayer(who) {
+  if (!who.pw) { enterPlayer(who); return; }
+  const tries = 3;
+  (function ask(left) {
+    const word = window.prompt("Password for " + who.name + ":");
+    if (word === null) return;                 // cancelled
+    hashPw((word || "").trim()).then(function (h) {
+      if (h === who.pw) { enterPlayer(who); return; }
+      if (left > 1) { window.alert("That is not the password. " + (left - 1) + " more " +
+        ((left - 1) === 1 ? "try" : "tries") + "."); ask(left - 1); }
+      else window.alert("That is not the password. Ask a grown-up - they can reset it on the admin page.");
+    });
+  })(tries);
+}
+
+function enterPlayer(who) {
+  state.activeId = who.id;
+  noteOpen(currentProfile());
+  save();
+  go("menu");
+}
+
 function renderHome() {
   const grid = state.profiles.map(function (p) {
     const rows = allRows(p);
@@ -4858,7 +4898,9 @@ function renderHome() {
                '<span class="profile-face" aria-hidden="true">' + esc(p.face) + '</span>' +
                '<span class="profile-name">' + esc(p.name) + '</span>' +
                '<span class="profile-meta">' + esc(courseOf(p).title) + '</span>' +
-               '<span class="profile-meta">' + esc(lv.label + ' of ' + lv.total) + '</span>' +
+               '<span class="profile-meta">' +
+                 (p.pending ? '⏳ waiting for approval'
+                   : esc(lv.label + ' of ' + lv.total) + (p.pw ? ' 🔒' : '')) + '</span>' +
                '<span class="profile-bar"><i style="width:' +
                  (lv.total ? Math.round((lv.number / lv.total) * 100) : 0) + '%"></i></span>' +
              '</button>' +
@@ -4891,10 +4933,14 @@ function renderHome() {
   screenEl.querySelectorAll("[data-open]").forEach(function (b) {
     b.onclick = function () {
       audio.prime();
-      state.activeId = b.getAttribute("data-open");
-      noteOpen(currentProfile());
-      save();
-      go("menu");
+      const who = state.profiles.find(function (x) { return x.id === b.getAttribute("data-open"); });
+      if (!who) return;
+      if (who.pending) {
+        window.alert(who.name + " is waiting for a grown-up to approve them.\n\n" +
+          "Open the game's admin page and approve this player.");
+        return;
+      }
+      openPlayer(who);
     };
   });
 
@@ -4926,7 +4972,8 @@ function renderProfileEditor(p) {
   if (!draft) {
     draft = {
       name: p ? p.name : "", face: p ? p.face : pick(FACES),
-      tier: ONE_TIER, unlockAll: p ? !!p.unlockAll : false
+      tier: ONE_TIER, unlockAll: p ? !!p.unlockAll : false,
+      pw: "", pwTouched: false     // typed only if the grown-up sets/changes it
     };
   }
 
@@ -4944,6 +4991,21 @@ function renderProfileEditor(p) {
         '<div class="faces">' + faces + '</div>' +
       '</div>' +
       '<div class="sheet stack">' +
+        '<label class="sr" for="pwIn">Player password</label>' +
+        '<div class="row" style="gap:8px">' +
+          '<span aria-hidden="true" style="font-size:18px">🔒</span>' +
+          '<input class="namefield" id="pwIn" type="text" maxlength="24" style="flex:1" ' +
+            'placeholder="' + (isNew ? "A password for this player" :
+              (p && p.pw ? "Type a new password to change it" : "Add a password")) + '" ' +
+            'autocomplete="off" value="">' +
+        '</div>' +
+        '<p class="fineprint">' + (isNew
+          ? "Pick something they can remember. They will type it to open this player."
+          : (p && p.pw ? "This player has a password. Leave blank to keep it, or type a new one."
+                       : "Add a password so only they can open this player. Leave blank for none.")) +
+        '</p>' +
+      '</div>' +
+      '<div class="sheet stack">' +
         '<label class="row" style="gap:8px;font-weight:700;font-size:14.5px;cursor:pointer">' +
           '<input type="checkbox" id="unlockAllIn"' + (draft.unlockAll ? " checked" : "") + ' style="width:19px;height:19px">' +
           'Open every topic now (skip the order)</label>' +
@@ -4959,6 +5021,8 @@ function renderProfileEditor(p) {
 
   const nameIn = document.getElementById("nameIn");
   nameIn.oninput = function () { draft.name = nameIn.value; };
+  const pwIn = document.getElementById("pwIn");
+  if (pwIn) pwIn.oninput = function () { draft.pw = pwIn.value; draft.pwTouched = true; };
   screenEl.querySelectorAll("[data-face]").forEach(function (b) {
     b.onclick = function () { draft.face = b.getAttribute("data-face"); renderProfileEditor(p); };
   });
@@ -4977,18 +5041,31 @@ function renderProfileEditor(p) {
 
   document.getElementById("saveP").onclick = function () {
     const name = (draft.name || "").trim() || "Player " + (state.profiles.length + 1);
-    if (isNew) {
-      const np = newProfile(name, draft.face, draft.tier);
-      np.unlockAll = draft.unlockAll;
-      state.profiles.push(np);
-      state.activeId = np.id;
-    } else {
-      p.name = name; p.face = draft.face; p.tier = draft.tier; p.unlockAll = draft.unlockAll;
-      prog(p).level = Math.max(0, Math.min(prog(p).level || 0, ladderFor(p).length - 1));   // a ladder can only ever be as long as it is
-    }
-    draft = null;
-    save();
-    go("menu");
+    // The password is hashed before it touches the save; an untouched field on
+    // an existing player leaves the old password alone.
+    const setPw = draft.pwTouched
+      ? hashPw((draft.pw || "").trim())
+      : Promise.resolve(isNew ? "" : (p.pw || ""));
+    setPw.then(function (pwHash) {
+      if (isNew) {
+        const np = newProfile(name, draft.face, draft.tier);
+        np.unlockAll = draft.unlockAll;
+        np.pw = pwHash;                       // pending stays true until approved
+        state.profiles.push(np);
+        // A pending player is not opened straight into a round; it waits.
+        state.activeId = null;
+        draft = null;
+        save();
+        go("home");
+      } else {
+        p.name = name; p.face = draft.face; p.tier = draft.tier; p.unlockAll = draft.unlockAll;
+        p.pw = pwHash;
+        prog(p).level = Math.max(0, Math.min(prog(p).level || 0, ladderFor(p).length - 1));
+        draft = null;
+        save();
+        go("menu");
+      }
+    });
   };
   document.getElementById("cancelP").onclick = function () {
     draft = null;

@@ -212,6 +212,12 @@ function mergeProfile(server, client, base) {
     tier: newer.tier || server.tier || client.tier,
     course: newer.course || server.course || client.course,
     unlockAll: !!(server.unlockAll || client.unlockAll),
+    // The password follows whichever side was touched last; an admin reset,
+    // being wipe-stamped, has already won the whole record above.
+    pw: (newer.pw !== undefined ? newer.pw : (server.pw !== undefined ? server.pw : client.pw)) || "",
+    // Pending is a gate that only opens: once either side has approved
+    // (pending false/absent) the player stays approved everywhere.
+    pending: !!server.pending && !!client.pending,
     progress: mergeProgress(server.progress, client.progress),
     cards: maxMap(server.cards, client.cards),
     money: counter(server.money, client.money, b.money),

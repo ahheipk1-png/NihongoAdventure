@@ -135,6 +135,8 @@ function overview(row) {
     course: (p && text(p.course, 32)) || "",
     stat: safeStat(p && p.stat),
     opens: (p && Array.isArray(p.opens)) ? p.opens.slice(0, 10).map(num) : [],
+    pending: !!(p && p.pending),
+    hasPw: !!(p && p.pw),
     bytes: (row.data || "").length
   };
 }
@@ -252,6 +254,25 @@ export async function onRequestPost(context) {
       "INSERT INTO saves (code, pid, data, rev, updated, deleted) VALUES (?1, ?2, '', 1, ?3, 1) " +
       "ON CONFLICT(code, pid) DO UPDATE SET deleted = 1, updated = ?3, rev = saves.rev + 1"
     ).bind(String(body.code || ""), String(body.pid || ""), now).run();
+    return json({ ok: true });
+  }
+
+  if (action === "approve" || action === "clearpw") {
+    const code = String(body.code || ""), pid = String(body.pid || "");
+    const row = await env.DB.prepare(
+      "SELECT data, rev FROM saves WHERE code = ?1 AND pid = ?2"
+    ).bind(code, pid).first();
+    if (!row || !row.data) return bad("no such player", 404);
+    let data = null;
+    try { data = JSON.parse(row.data); } catch (e) { return bad("unreadable save", 500); }
+    if (action === "approve") data.pending = false;
+    else data.pw = "";
+    // A wipe stamp makes this beat whatever the children's devices are holding.
+    data.wipe = Date.now();
+    data.touched = Date.now();
+    await env.DB.prepare(
+      "UPDATE saves SET data = ?1, rev = rev + 1, updated = ?2 WHERE code = ?3 AND pid = ?4"
+    ).bind(JSON.stringify(data), Date.now(), code, pid).run();
     return json({ ok: true });
   }
 
