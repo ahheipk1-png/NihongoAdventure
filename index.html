@@ -558,9 +558,15 @@ button.board-tag.leave:focus-visible { outline: 2.5px solid var(--ai); outline-o
   background-image: repeating-radial-gradient(circle at 30% 40%, transparent 0 22px, var(--sea-wave) 22px 24px, transparent 24px 60px);
 }
 .japan {
+  position: relative;
   display: grid; grid-template-columns: repeat(13, 66px); grid-auto-rows: 66px; gap: 7px;
   padding: 22px; width: max-content;
 }
+/* Built from the tiles, so it always underlays them and scales with them. */
+.japan-bg { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+.japan-land  { fill: rgba(150, 190, 120, .5); }
+.japan-coast { fill: rgba(228, 216, 176, .45); }
+.japan > .ptile, .japan > .sea-deco { position: relative; z-index: 1; }
 .ptile {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
   border: 2.5px solid rgba(0,0,0,.12); border-radius: 14px; cursor: pointer; padding: 2px;
@@ -1129,6 +1135,8 @@ button.board-tag.leave:focus-visible { outline: 2.5px solid var(--ai); outline-o
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .pix-note { padding: 26px 8px; text-align: center; color: var(--ink-soft); }
+.pix-desc { margin: 4px 0 0; font-size: 13.5px; line-height: 1.5; color: var(--ink-soft); }
+.pix-desc:empty { display: none; }
 .pix-credit-note { font-size: 11px; color: var(--ink-faint); text-align: center; margin: 0; }
 .pix-btn {
   border: 1.5px solid var(--rule); background: var(--paper); color: var(--ink-soft);
@@ -1183,7 +1191,13 @@ button.board-tag.leave:focus-visible { outline: 2.5px solid var(--ai); outline-o
   min-width: 30px; text-align: center;
 }
 .rung.rev { border-style: dashed; }
-.rung.learned { color: var(--wakakusa); border-color: var(--wakakusa); background: var(--wakakusa-wash); }
+/* Passed, but not flawless: a paler green than a green-star level. */
+.rung.learned {
+  color: #6aa15a; border-color: #c2ddb3; background: #eef6e6;
+  color: color-mix(in srgb, var(--wakakusa) 58%, var(--ink-faint));
+  border-color: color-mix(in srgb, var(--wakakusa) 42%, var(--rule));
+  background: color-mix(in srgb, var(--wakakusa-wash) 45%, var(--paper));
+}
 .rung.current { color: var(--ai); border-color: var(--ai); background: var(--ai-wash); }
 button.rung.replay { cursor: pointer; font: inherit; font-weight: 700; font-size: 13.5px; }
 button.rung.replay:hover { border-color: var(--ai); color: var(--ai); }
@@ -1244,7 +1258,8 @@ button.rung.replay:focus-visible { outline: 2.5px solid var(--ai); outline-offse
 .lvlrow-star { flex: 0 0 auto; font-size: 21px; color: var(--wakakusa); }
 .lvlrow-go   { flex: 0 0 auto; font-size: 12.5px; font-weight: 800; color: var(--ai); }
 .lvlrow-lock { flex: 0 0 auto; font-size: 14px; opacity: .6; }
-.rung.perfect { position: relative; border-color: var(--wakakusa); }
+.rung.perfect { position: relative;
+  color: var(--wakakusa); border-color: var(--wakakusa); background: var(--wakakusa-wash); }
 .rung-star {
   position: absolute; top: -7px; right: -5px; font-size: 11px;
   color: var(--wakakusa); text-shadow: 0 0 2px var(--paper), 0 0 4px var(--paper);
@@ -5237,6 +5252,30 @@ let mapToast = null;          // one-render celebration after a build
 function tileName(r) { return r.kanji.replace(/[県府都]$/, ""); }
 function regionClass(r) { return "r-" + r.region.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(); }
 
+/* A soft island under the prefecture tiles. Not a real map: a blurred circle
+   at each tile's own grid position, all merged by a gooey filter into one
+   continuous landmass. Because it is drawn from the tile positions it always
+   sits under them, and because it is an SVG stretched to the grid box it costs
+   nothing to resize. */
+function japanBg() {
+  const W = 986, H = 1132;                     // the grid's own pixel box
+  const cx = function (c) { return 55 + c * 73; };
+  const cy = function (r) { return 55 + r * 73; };
+  const dots = PREFS.map(function (r) {
+    return '<circle cx="' + cx(r.col) + '" cy="' + cy(r.row) + '" r="55"/>';
+  }).join("");
+  const goo = function (id, dev, aa, bb) {
+    return '<filter id="' + id + '"><feGaussianBlur in="SourceGraphic" stdDeviation="' + dev +
+      '" result="b"/><feColorMatrix in="b" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 ' +
+      aa + ' ' + bb + '"/></filter>';
+  };
+  return '<svg class="japan-bg" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" aria-hidden="true">' +
+           '<defs>' + goo("gLand", 16, 20, -10) + goo("gCoast", 26, 16, -8) + '</defs>' +
+           '<g class="japan-coast" filter="url(#gCoast)">' + dots + '</g>' +
+           '<g class="japan-land" filter="url(#gLand)">' + dots + '</g>' +
+         '</svg>';
+}
+
 function mapHTML(p) {
   if (!mapSel || !PREF_BY_ID[mapSel]) mapSel = (closestPref(p) || {}).id;
   const close = closestPref(p);
@@ -5271,7 +5310,7 @@ function mapHTML(p) {
         'them up and gild them. Build all ten and its card is yours.</p>' +
       closeLine +
     '</div>' +
-    '<div class="mapwrap"><div class="japan" role="group" aria-label="Map of Japan">' + tiles +
+    '<div class="mapwrap"><div class="japan" role="group" aria-label="Map of Japan">' + japanBg() + tiles +
       '<span class="sea-deco" style="grid-column:3;grid-row:3" aria-hidden="true">⛵</span>' +
       '<span class="sea-deco" style="grid-column:6;grid-row:12" aria-hidden="true">🐟</span>' +
       '<span class="sea-deco" style="grid-column:13;grid-row:9" aria-hidden="true">⛵</span>' +
@@ -7845,6 +7884,7 @@ const realpix = (function () {
   const API = "https://commons.wikimedia.org/w/api.php";
   const WANT = 5;
   const cache = {};                 // query -> array of photos, or "none"
+  const descCache = {};             // query -> description text, or "none"
   let reachable = null;             // null until the first call answers
 
   // Non-photographs that a name search drags in: maps, seals, flags, diagrams.
@@ -7946,6 +7986,34 @@ const realpix = (function () {
     document.getElementById("pixClose").onclick = close;
   }
 
+  /* A couple of sentences about the place, from Wikipedia, in English so a
+     parent can read it too. The English name finds the best article; the
+     Japanese name is the fallback, and Japanese Wikipedia the last resort. */
+  function wiki(host, term) {
+    const u = host + "/w/api.php?origin=*&format=json&action=query&generator=search&gsrlimit=1" +
+      "&gsrsearch=" + encodeURIComponent(term) +
+      "&prop=extracts&exintro=1&explaintext=1&exsentences=2";
+    return fetch(u).then(function (r) { return r.json(); }).then(function (j) {
+      const pg = (j.query && j.query.pages) ? Object.keys(j.query.pages).map(function (k) {
+        return j.query.pages[k]; })[0] : null;
+      return (pg && pg.extract) ? pg.extract : "";
+    });
+  }
+
+  function describe(enTerm, jpTerm) {
+    const key = enTerm || jpTerm || "";
+    if (descCache[key]) return Promise.resolve(descCache[key] === "none" ? "" : descCache[key]);
+    return wiki("https://en.wikipedia.org", enTerm || jpTerm)
+      .then(function (t) { return t || (jpTerm ? wiki("https://en.wikipedia.org", jpTerm) : ""); })
+      .then(function (t) { return t || (jpTerm ? wiki("https://ja.wikipedia.org", jpTerm) : ""); })
+      .then(function (t) { descCache[key] = t || "none"; return t; })
+      .catch(function () { return ""; });
+  }
+
+  function descSlot() {
+    return '<p class="pix-desc" id="pixDesc"></p>';
+  }
+
   function gallery(list) {
     return '<div class="pix-grid">' + list.map(function (ph) {
       return '<a class="pix-cell" href="' + esc(ph.page) + '" target="_blank" rel="noopener noreferrer" ' +
@@ -7963,13 +8031,23 @@ const realpix = (function () {
 
     open: function (title, sub, query, backup) {
       draw(title, sub, '<div class="pix-note">Looking for photos…</div>');
+      // The description is filled AFTER the gallery draws, so the slot it goes
+      // into always exists by then; describe() is cached, so this is cheap.
+      const fillDesc = function () {
+        describe(backup, query).then(function (text) {
+          const box = document.getElementById("pixDesc");
+          if (!box) return;
+          if (text) box.textContent = text; else box.remove();
+        });
+      };
       fetchFor(query, backup).then(function (list) {
         if (!document.getElementById("pixOverlay")) return;   // already closed
         if (!list.length) {
-          draw(title, sub, '<div class="pix-note">No photos found for this one.</div>');
+          draw(title, sub, '<div class="pix-note">No photos found for this one.</div>' + descSlot());
         } else {
-          draw(title, sub, gallery(list));
+          draw(title, sub, gallery(list) + descSlot());
         }
+        fillDesc();
       }).catch(function () {
         if (reachable === null) reachable = false;
         if (!document.getElementById("pixOverlay")) return;
