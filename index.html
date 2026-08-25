@@ -5102,7 +5102,22 @@ function renderProfileEditor(p) {
   if (unlockIn) unlockIn.onchange = function () { draft.unlockAll = unlockIn.checked; };
 
   document.getElementById("saveP").onclick = function () {
-    const name = (draft.name || "").trim() || "Player " + (state.profiles.length + 1);
+    /* Every player needs their own name: the shared family shows the same list
+       on every device, and two Sortas called the same thing are impossible to
+       tell apart there or on the parents' page. */
+    let name = (draft.name || "").trim();
+    if (!name) {
+      let n = state.profiles.length + 1;
+      while (state.profiles.some(function (x) { return (x.name || "").toLowerCase() === ("player " + n); })) n++;
+      name = "Player " + n;
+    }
+    const clash = state.profiles.some(function (x) {
+      return (!p || x.id !== p.id) && (x.name || "").trim().toLowerCase() === name.toLowerCase();
+    });
+    if (clash) {
+      window.alert('There is already a player called "' + name + '". Every player needs their own name.');
+      return;
+    }
     // The password is hashed before it touches the save; an untouched field on
     // an existing player leaves the old password alone.
     const setPw = draft.pwTouched
@@ -6028,6 +6043,7 @@ function renderMenu(p) {
           ? '<button class="btn" id="toRoom">🃏 Card Room · ' + roomCost(p) + ' questions</button>'
           : '') +
         '<button class="btn btn-ghost btn-sm" id="editMe">Settings</button>' +
+        '<button class="btn btn-ghost btn-sm" id="logOff" title="Close this player and go back to the player list. A player with a password will ask for it again.">Log off</button>' +
       '</div>' +
     '</div>';
 
@@ -6044,6 +6060,11 @@ function renderMenu(p) {
   document.getElementById("studyBtn").onclick = function () { go("study"); };
   document.getElementById("toGarden").onclick = function () { go("garden"); };
   document.getElementById("editMe").onclick = function () { draft = null; go("profile"); };
+  document.getElementById("logOff").onclick = function () {
+    stopLoops();
+    state.activeId = null;
+    go("home");
+  };
 }
 
 /* ============================================================
