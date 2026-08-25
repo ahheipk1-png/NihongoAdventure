@@ -1075,6 +1075,7 @@ button.board-tag.leave:focus-visible { outline: 2.5px solid var(--ai); outline-o
                text-transform: uppercase; opacity: .65; text-align: center; }
 .cloudbar { text-align: center; margin: 2px 0 4px; color: var(--ink-faint); font-size: 12px; }
 .cloudbar-note { font-weight: 700; }
+.cloudcode { font-family: ui-monospace, Menlo, monospace; letter-spacing: 1px; color: var(--ai); }
 .cloudbar-detail {
   margin: 8px auto 0; max-width: 440px; padding: 12px 14px;
   background: var(--paper); border: 1.5px solid var(--rule); border-radius: 14px;
@@ -4798,22 +4799,27 @@ function cloudSheet() {
   /* Automatic, so this is quiet. A child never needs it; a parent linking a
      second computer taps "Play on another computer" for the code and join box. */
   if (c) {
+    /* Two devices only show the same players when they share ONE code, so both
+       directions are spelled out and the join box is always visible - the thing
+       missing the first time was that nobody knew a code had to be entered. */
     return '<div class="cloudbar">' +
-             '<span class="cloudbar-note">\u2601 Progress saves automatically</span> ' +
-             '<button class="linkish" id="cloudMore">Play on another computer</button>' +
+             '<span class="cloudbar-note">\u2601 Saved \u00b7 this device\'s code ' +
+               '<b class="cloudcode">' + esc(c.slice(0, 4)) + '-' + esc(c.slice(4)) + '</b></span> ' +
+             '<button class="linkish" id="cloudMore">Play on phone &amp; computer</button>' +
              '<div class="cloudbar-detail" id="cloudDetail" hidden>' +
-               '<p class="fineprint">On the other computer, open the game and type this code:</p>' +
+               '<p class="fineprint"><b>To see these players on another device</b> \u2014 a phone, tablet ' +
+                 'or a second computer \u2014 open the game there and type this code:</p>' +
                '<div class="row" style="justify-content:center">' +
                  '<span class="code-box">' + esc(c.slice(0, 4)) + '<i>-</i>' + esc(c.slice(4)) + '</span>' +
-                 '<button class="btn btn-sm" id="cloudCopy" title="Copy the family code">Copy</button>' +
+                 '<button class="btn btn-sm" id="cloudCopy" title="Copy the code">Copy</button>' +
                '</div>' +
-               '<p class="fineprint">Already have a code from another computer? ' +
-                 '<button class="linkish" id="cloudJoinToggle">Enter it here</button> ' +
-                 '\u00b7 <button class="linkish" id="cloudOff">Stop saving on this computer</button></p>' +
-               '<div class="row" id="cloudJoinRow" style="justify-content:center" hidden>' +
+               '<p class="fineprint"><b>Already made players on another device?</b> Type that ' +
+                 'device\'s code here to bring everyone together:</p>' +
+               '<div class="row" style="justify-content:center">' +
                  '<input class="code-in" id="cloudCode" maxlength="9" placeholder="CODE" aria-label="Family code" />' +
-                 '<button class="btn btn-sm" id="cloudJoin">Use this code</button>' +
+                 '<button class="btn btn-sm" id="cloudJoin">Bring them here</button>' +
                '</div>' +
+               '<p class="fineprint" style="margin-top:6px"><button class="linkish" id="cloudOff">Stop saving on this device</button></p>' +
                '<span class="grow-label" id="cloudMsg">' + esc(cloud.note()) + '</span>' +
              '</div>' +
            '</div>';
