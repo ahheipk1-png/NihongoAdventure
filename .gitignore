@@ -6,6 +6,12 @@ node_modules/
 
 # raw generated audio (the compressed copies live inside index.html)
 audio-build/audio/
+# Clips Workers AI returned silent or malformed. Kept on disk as evidence and
+# to keep them out of audio/ so a later run regenerates them - worthless in the
+# repo. audio_small/ IS tracked: audio/ is ignored, so those vetted mp3s are the
+# only durable copy of clips that cost real neurons.
+audio-build/audio_rejected/
+__pycache__/
 audio-build/dist/
 audio-build/local_wav/
 audio-build/local_trimmed/

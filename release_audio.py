@@ -9,10 +9,10 @@ Every step skips work already done, so if the daily Workers AI allowance runs
 out part-way the script can simply be run again the next day and it picks up
 where it stopped. Nothing is deployed unless at least one new clip exists.
 
-Steps: generate -> embed -> copy to index.html -> deploy to Cloudflare -> push.
+Steps: generate -> vet+encode -> embed -> copy to index.html -> deploy -> push.
 Republishing the Artifact is the one thing this cannot do; Claude does that.
 """
-import io, os, json, base64, subprocess, sys, time
+import io, os, json, base64, shutil, subprocess, sys, time
 
 HERE     = r"C:\JapaneseLearning"
 # Kept inside the project, not a session temp folder - a scheduled run hours
@@ -24,7 +24,26 @@ DIST     = os.path.join(SCRATCH, "dist")
 SPEAK    = os.path.join(os.path.expanduser("~"), ".claude", "skills", "cf-image-gen", "scripts", "speak.py")
 GAME     = os.path.join(HERE, "kana-quest.html")
 INDEX    = os.path.join(HERE, "index.html")
+SMALL    = os.path.join(SCRATCH, "audio_small")
 PROJECT  = "nihongoadventure"
+# Cloudflare Pages refuses a single asset over 25 MiB, and the game is one
+# file. Worth checking here rather than discovering it from wrangler after a
+# forty-minute generation run.
+PAGES_MAX = 25 * 1024 * 1024
+
+
+def npx():
+    """Full path to npx.
+
+    On Windows npx is npx.cmd, and subprocess with an argument list looks for a
+    file called exactly "npx", so passing the bare name raises
+    FileNotFoundError [WinError 2] - which is how a finished build failed to
+    deploy on 2026-08-25. shutil.which applies PATHEXT and finds the .cmd.
+    """
+    found = shutil.which("npx")
+    if not found:
+        sys.exit("npx not found on PATH - Node.js is needed to run wrangler.")
+    return found
 
 
 def run(cmd, **kw):
@@ -105,33 +124,54 @@ def main():
         print("Nothing new was generated; not redeploying.")
         return
 
-    # 2. embed them into the single file
+    # 2. throw out the duds and shrink the keepers
+    #
+    # Neither of these is optional. Workers AI returns uncompressed WAV under an
+    # .mp3 name, which alone puts the page past the Pages file limit, and most
+    # of those WAVs are silent - and a Cloudflare clip outranks a working Haruka
+    # one, so shipping them unvetted replaces spoken words with nothing.
+    code, _ = run([sys.executable, os.path.join(SCRATCH, "cf_to_mp3.py")])
+    if code != 0:
+        sys.exit("encoding failed")
+    good = len([n for n in os.listdir(SMALL) if n.endswith(".mp3")]) \
+        if os.path.isdir(SMALL) else 0
+    print("\n%d clips passed vetting and are embeddable" % good)
+    if good == 0:
+        sys.exit("Every generated clip was silent or unusable; nothing to ship.")
+
+    # 3. embed them into the single file
     code, _ = run([sys.executable, os.path.join(SCRATCH, "inject_audio.py")])
     if code != 0:
         sys.exit("embedding failed")
 
-    # 3. the repo's canonical file, and the deploy folder
+    # 4. the repo's canonical file, and the deploy folder
     io.open(INDEX, "w", encoding="utf-8").write(io.open(GAME, encoding="utf-8").read())
     os.makedirs(DIST, exist_ok=True)
     io.open(os.path.join(DIST, "index.html"), "w", encoding="utf-8").write(
         io.open(INDEX, encoding="utf-8").read())
-    print("\ngame is now %d KB" % (os.path.getsize(GAME) // 1024))
+    size = os.path.getsize(GAME)
+    print("\ngame is now %d KB" % (size // 1024))
+    if size > PAGES_MAX:
+        sys.exit("\nRefusing to deploy: the page is %.1f MiB and Cloudflare Pages "
+                 "caps one asset at %.0f MiB.\nThe clips are kept, so fix the "
+                 "encoding and re-run - nothing was pushed."
+                 % (size / 1048576.0, PAGES_MAX / 1048576.0))
 
-    # 4. ship it
-    run(["npx", "-y", "wrangler@4", "pages", "deploy", DIST,
+    # 5. ship it
+    run([npx(), "-y", "wrangler@4", "pages", "deploy", DIST,
          "--project-name", PROJECT, "--branch", "main", "--commit-dirty=true"], cwd=HERE)
 
     msg = ("Add generated pronunciation for %d items\n\n"
            "Clips generated with MeloTTS on Workers AI and embedded as window.AUDIO,\n"
            "so every child hears the same correct Japanese rather than whatever voice\n"
            "the device happens to have - many have none.\n\n"
-           "Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>\n" % after)
+           "Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>\n" % good)
     run(["git", "add", "-A"], cwd=HERE)
     run(["git", "-c", "core.safecrlf=false", "commit", "-q", "-m", msg], cwd=HERE)
     env = dict(os.environ, GCM_INTERACTIVE="never", GIT_TERMINAL_PROMPT="0")
     run(["git", "push"], cwd=HERE, env=env)
 
-    # 5. confirm it is really live
+    # 6. confirm it is really live
     for _ in range(20):
         code, out = run('curl -s -o NUL -w "%%{http_code}" https://%s.pages.dev/' % PROJECT)
         if out.strip().endswith("200"):
@@ -139,9 +179,10 @@ def main():
             break
         time.sleep(5)
 
-    print("\nDONE - %d/%d clips shipped." % (after, total))
-    if after < total:
-        print("%d still missing; re-run tomorrow to finish them." % (total - after))
+    print("\nDONE - %d/%d clips shipped with the MeloTTS voice." % (good, total))
+    if good < total:
+        print("%d still speak with the local Haruka voice; re-run to keep "
+              "replacing them." % (total - good))
     print("Remaining manual step: republish the Artifact from kana-quest.html.")
 
 
