@@ -4500,6 +4500,24 @@ function refreshPool(p) {
   });
 }
 
+/* Leaving the card wheel banks the card instead of forfeiting it: whatever
+   slice is under the pin at that moment is what they keep, exactly as if they
+   had pressed STOP on the way out. The reveal screen is skipped - they chose to
+   go - but the card is added, paid for and saved. */
+function bankWheel(p) {
+  if (!p || !room || !room.wheel) return;
+  const w = room.wheel;
+  let key = w.landed;                 // STOP pressed, settle not finished yet
+  if (!key) {
+    const el = document.getElementById("wheel");
+    const slices = w.keys.length;
+    const cur = w.ticker ? (w.step * (360 / slices)) % 360 : wheelAngle(el);
+    key = w.keys[wheelIndexAt(cur, slices)];
+  }
+  if (w.ticker) { clearInterval(w.ticker); w.ticker = null; }
+  landCard(p, key);                   // adds the card, pays sets, saves; clears room.wheel
+}
+
 function go(name) {
   // Anything the cloud sent while a round was running is applied now, on the
   // way out of it, so nothing changes under a child mid-question.
@@ -4507,7 +4525,10 @@ function go(name) {
   stopStudyPlay();
   closeStudyOverlay();
   closeMapOverlay();
-  if (name !== "room" && name !== "wallet") room = null;
+  if (name !== "room" && name !== "wallet") {
+    if (room && room.wheel) bankWheel(currentProfile());
+    room = null;
+  }
   if (name !== "fish") stopLoops();
   screen = name;
   render();
