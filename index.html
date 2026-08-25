@@ -1081,6 +1081,7 @@ button.board-tag.leave:focus-visible { outline: 2.5px solid var(--ai); outline-o
   background: var(--paper); border: 1.5px solid var(--rule); border-radius: 14px;
 }
 .cloudbar-detail .fineprint { margin: 0 0 8px; }
+.profile.admincard { border-color: var(--ai); background: var(--ai-wash); }
 .cloud-pill {
   font-size: 14px; line-height: 1; padding: 6px 9px; border-radius: 999px;
   background: var(--ai-wash); color: var(--ai); border: 1px solid transparent;
@@ -4893,6 +4894,17 @@ function renderHome() {
     const done = learnedKana(p).filter(function (k) { return box(p, k) >= MASTERED; }).length;
     const pct = total ? Math.round((done / total) * 100) : 0;
     const lv = levelInfo(p);
+    const isAdmin = (p.name || "").trim().toLowerCase() === "admin";
+    if (isAdmin) {
+      return '<div class="pslot">' +
+               '<button class="profile admincard" data-open="' + p.id + '">' +
+                 '<span class="profile-face" aria-hidden="true">🔑</span>' +
+                 '<span class="profile-name">' + esc(p.name) + '</span>' +
+                 '<span class="profile-meta">Grown-ups’ page</span>' +
+                 '<span class="profile-meta">Tap to manage players →</span>' +
+               '</button>' +
+             '</div>';
+    }
     return '<div class="pslot">' +
              '<button class="profile" data-open="' + p.id + '">' +
                '<span class="profile-face" aria-hidden="true">' + esc(p.face) + '</span>' +
@@ -4935,6 +4947,12 @@ function renderHome() {
       audio.prime();
       const who = state.profiles.find(function (x) { return x.id === b.getAttribute("data-open"); });
       if (!who) return;
+      // A player called "admin" is the grown-ups' door: tapping it goes to the
+      // parents' page (which has its own password) rather than into a round.
+      if ((who.name || "").trim().toLowerCase() === "admin") {
+        location.href = location.origin + "/admin";
+        return;
+      }
       if (who.pending) {
         window.alert(who.name + " is waiting for a grown-up to approve them.\n\n" +
           "Open the game's admin page and approve this player.");
