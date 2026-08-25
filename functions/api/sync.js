@@ -312,7 +312,17 @@ export async function onRequestPost(context) {
   const code = cleanCode(body.code);
   if (!code) return bad("that code does not look right", 400);
   const fam = await env.DB.prepare("SELECT code FROM families WHERE code = ?1").bind(code).first();
-  if (!fam) return json({ ok: false, error: "no such code", unknownCode: true }, 404);
+  if (!fam) {
+    /* The game now ships one shared code, so a family that does not exist yet
+       is simply created on first use - otherwise deleting it in /admin would
+       strand every device forever. Capped by the same daily bucket as minting,
+       so this is not an open door to filling the table. */
+    if (await tooMany(env, key + ":n", minute - (minute % 1440), NEW_PER_DAY)) {
+      return bad("too many new codes today", 429);
+    }
+    await env.DB.prepare("INSERT OR IGNORE INTO families (code, created, seen) VALUES (?1, ?2, ?2)")
+      .bind(code, Date.now()).run();
+  }
 
   const profiles = Array.isArray(body.profiles) ? body.profiles.slice(0, MAX_PROFILES) : [];
   const bases = obj(body.base);

@@ -3016,10 +3016,18 @@ const cloud = (function () {
     if (!state.cloud || typeof state.cloud !== "object") state.cloud = {};
     return state.cloud;
   }
-  function code() { return conf().code || ""; }
+  /* ONE family for this whole deployment. Every phone and computer that opens
+     the game saves into it and reads out of it, so the same set of players
+     appears everywhere with nothing to type - which is what was actually
+     wanted; per-device codes only ever confused people. The trade this makes
+     is stated plainly: the code sits in the page source, so anyone who has
+     this game's address shares the same set of players. For one family's
+     private game, that is the point rather than a problem. */
+  const SHARED_CODE = "K7MQ4RXN";
+
+  function code() { return off() ? "" : SHARED_CODE; }
   function on() { return !!code(); }
-  // A deliberate "Stop syncing here" is remembered, so the device does not just
-  // mint a new code on the next save and undo the choice.
+  // A deliberate "stop" is remembered, so the device stays stopped.
   function off() { return !!conf().off; }
   function gone() {
     if (!state.gone || typeof state.gone !== "object") state.gone = {};
@@ -3207,25 +3215,11 @@ const cloud = (function () {
     // A round that ends offline still has to be pushed the moment it is back.
 
     // Called from save(). Cheap, debounced, and never on the critical path.
-    // With no code yet, this is also where saving turns itself on.
+    // The code is the shared one, so there is nothing to mint any more.
     touch: function () {
-      if (applying) return;
-      if (!on()) { this.auto(); return; }
-      if (reachable === false) return;
+      if (applying || !on() || reachable === false) return;
       if (timer) window.clearTimeout(timer);
       timer = window.setTimeout(function () { timer = null; queue(false); }, DEBOUNCE);
-    },
-
-    /* Turn saving on by itself, once, the first time there is something to
-       save and a cloud to save it to. Not on an empty computer - that is a
-       fresh second machine, and it should be offered the family code rather
-       than start a second family - and not after a deliberate stop. */
-    auto: function () {
-      if (on() || off() || minting || reachable === false) return;
-      if (!state.profiles.length) return;
-      minting = true;
-      this.begin().then(function () { minting = false; render(); },
-                        function () { minting = false; });
     },
 
     /* Called when a round ends and it is safe to change what is on screen.
@@ -4792,52 +4786,13 @@ function unlockBanner() { return ""; }
 /* The only part of cloud save a family ever sees: one code, one button to
    copy it, one box to type it into on the other computer. Deliberately on the
    player-picking screen and nowhere else, so a child cannot wander into it. */
+/* One shared family for the whole game, so there is nothing to set up, type
+   or copy. This line only reassures. */
 function cloudSheet() {
   if (!cloud.ready()) return "";
-  const c = cloud.code();
-
-  /* Automatic, so this is quiet. A child never needs it; a parent linking a
-     second computer taps "Play on another computer" for the code and join box. */
-  if (c) {
-    /* Two devices only show the same players when they share ONE code, so both
-       directions are spelled out and the join box is always visible - the thing
-       missing the first time was that nobody knew a code had to be entered. */
-    return '<div class="cloudbar">' +
-             '<span class="cloudbar-note">\u2601 Saved \u00b7 this device\'s code ' +
-               '<b class="cloudcode">' + esc(c.slice(0, 4)) + '-' + esc(c.slice(4)) + '</b></span> ' +
-             '<button class="linkish" id="cloudMore">Play on phone &amp; computer</button>' +
-             '<div class="cloudbar-detail" id="cloudDetail" hidden>' +
-               '<p class="fineprint"><b>To see these players on another device</b> \u2014 a phone, tablet ' +
-                 'or a second computer \u2014 open the game there and type this code:</p>' +
-               '<div class="row" style="justify-content:center">' +
-                 '<span class="code-box">' + esc(c.slice(0, 4)) + '<i>-</i>' + esc(c.slice(4)) + '</span>' +
-                 '<button class="btn btn-sm" id="cloudCopy" title="Copy the code">Copy</button>' +
-               '</div>' +
-               '<p class="fineprint"><b>Already made players on another device?</b> Type that ' +
-                 'device\'s code here to bring everyone together:</p>' +
-               '<div class="row" style="justify-content:center">' +
-                 '<input class="code-in" id="cloudCode" maxlength="9" placeholder="CODE" aria-label="Family code" />' +
-                 '<button class="btn btn-sm" id="cloudJoin">Bring them here</button>' +
-               '</div>' +
-               '<p class="fineprint" style="margin-top:6px"><button class="linkish" id="cloudOff">Stop saving on this device</button></p>' +
-               '<span class="grow-label" id="cloudMsg">' + esc(cloud.note()) + '</span>' +
-             '</div>' +
-           '</div>';
-  }
-
-  /* No code yet - a fresh second computer, or one where saving was stopped.
-     The one thing worth offering is joining an existing family. */
   return '<div class="cloudbar">' +
-           '<span class="cloudbar-note">' +
-             (state.profiles.length ? '\u2601 Progress saves automatically'
-                                    : 'Already playing on another computer?') + '</span>' +
-           '<div class="row" style="justify-content:center">' +
-             '<input class="code-in" id="cloudCode" maxlength="9" placeholder="CODE" ' +
-               'title="The eight-letter code from the computer you already set up" aria-label="Family code" />' +
-             '<button class="btn btn-sm" id="cloudJoin" title="Bring that family\'s players onto this computer">Use this code</button>' +
-             (cloud.stopped() ? '<button class="btn btn-sm" id="cloudOn" title="Turn saving back on for this computer">Turn saving on</button>' : '') +
-           '</div>' +
-           '<span class="grow-label" id="cloudMsg">' + esc(cloud.note()) + '</span>' +
+           '<span class="cloudbar-note">☁ Saved to the cloud — the same players on every ' +
+           'phone and computer, automatically.</span>' +
          '</div>';
 }
 function wireCloud() {
