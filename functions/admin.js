@@ -434,7 +434,16 @@ if (TOKEN) load();
    Escaping is the fix for injected markup and this is the belt to its braces:
    under a script-src nonce, an onerror= that slipped through would sit
    in the page inert, because an inline event handler is not a nonced script. */
-export async function onRequestGet() {
+export async function onRequestGet(context) {
+  /* Every deploy also answers on a hash-named host, and the admin API refuses
+     those (they must not become stray admin panels). Serving the page there
+     anyway was a trap: it looked right and then said "wrong password". Send
+     the visitor to the one address where signing in actually works. */
+  const host = new URL(context.request.url).hostname;
+  const HOME = "nihongoadventure.pages.dev";
+  if (!context.env.ADMIN_PASSWORD && host !== HOME && host !== "localhost" && host !== "127.0.0.1") {
+    return Response.redirect("https://" + HOME + "/admin", 302);
+  }
   const bytes = new Uint8Array(16);
   crypto.getRandomValues(bytes);
   let nonce = "";
