@@ -246,6 +246,23 @@ async function store(env, code, p, base, now) {
     ).bind(code, p.id).first();
     if (row && row.deleted) return true;         // deleted on purpose, elsewhere
     if (!row) {
+      /* Names are unique per family, enforced here at the source of truth: the
+         client checks too, but an old cached build or two devices creating the
+         same name before syncing walk straight past a client check. The clash
+         is renamed, never rejected - rejecting would strand a real child's
+         local player. */
+      if (p.name) {
+        let base = String(p.name).trim(), want = base;
+        for (let n = 2; n < 12; n++) {
+          const clash = await env.DB.prepare(
+            "SELECT COUNT(*) AS c FROM saves WHERE code = ?1 AND pid != ?2 AND deleted = 0 " +
+            "AND json_valid(data) AND lower(trim(json_extract(data, '$.name'))) = lower(?3)"
+          ).bind(code, p.id, want).first();
+          if (!clash || !num(clash.c)) break;
+          want = base + " " + n;
+        }
+        p.name = want;
+      }
       const ins = await env.DB.prepare(
         "INSERT INTO saves (code, pid, data, rev, updated, deleted) VALUES (?1, ?2, ?3, 1, ?4, 0) " +
         "ON CONFLICT(code, pid) DO NOTHING"
