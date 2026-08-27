@@ -20,3 +20,9 @@ audio-build/local_probe/
 audio-build/voice-sample.wav
 audio-build/probe*.json
 .kq-bk-*.html
+
+# Scratch from the Nanami voice work. edge_mp3/ and the two kana style folders
+# ARE tracked: they are the only copy of the shipped voice and regenerating
+# them means 1,127 more calls to edge-tts.
+audio-build/edge_test/
+audio-build/voice_sample.html
