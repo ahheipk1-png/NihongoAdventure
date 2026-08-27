@@ -33,6 +33,7 @@ are simply absent and the game falls back to a device voice for those.
 import io, os, re, json, base64, sys
 
 SC = os.path.dirname(os.path.abspath(__file__))
+EDGE = os.path.join(SC, "edge_mp3")          # Nanami neural voice - preferred
 MP3 = os.path.join(SC, "audio_small")
 LOCAL_MP3 = os.path.join(SC, "local_mp3")
 WAV = os.path.join(SC, "local_trimmed")
@@ -51,7 +52,7 @@ s = io.open(GAME, encoding="utf-8").read()
 
 audio = {}
 bytes_used = 0
-from_mp3 = from_local = from_wav = missing = blank = 0
+from_edge = from_mp3 = from_local = from_wav = missing = blank = 0
 
 
 def usable(path, floor=256):
@@ -80,10 +81,14 @@ for j in jobs:
     if not text:
         blank += 1
         continue
+    edge = os.path.join(EDGE, j["name"] + ".mp3")
     mp3 = os.path.join(MP3, j["name"] + ".mp3")
     local = os.path.join(LOCAL_MP3, j["name"] + ".mp3")
     wav = os.path.join(j.get("_wavdir") or WAV, j["name"] + ".wav")
-    if usable(mp3, 512):
+    if usable(edge, 512):
+        src, mime = edge, "audio/mpeg"
+        from_edge += 1
+    elif usable(mp3, 512):
         src, mime = mp3, "audio/mpeg"
         from_mp3 += 1
     elif usable(local):
@@ -118,7 +123,7 @@ else:
 
 io.open(GAME, "w", encoding="utf-8").write(s)
 mb = 1048576.0
-print("embedded %d clips: %d MeloTTS mp3, %d local mp3, %d raw wav"
-      % (len(audio), from_mp3, from_local, from_wav))
+print("embedded %d clips: %d Nanami, %d MeloTTS, %d Haruka, %d raw wav"
+      % (len(audio), from_edge, from_mp3, from_local, from_wav))
 print("  %d missing, %d blank entries skipped" % (missing, blank))
 print("  %.1f MB of audio -> %.1f MB of page" % (bytes_used / mb, os.path.getsize(GAME) / mb))
